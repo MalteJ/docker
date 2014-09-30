@@ -44,22 +44,23 @@ func Parse(cmd *flag.FlagSet, args []string, sysInfo *sysinfo.SysInfo) (*Config,
 		flCapAdd      = opts.NewListOpts(nil)
 		flCapDrop     = opts.NewListOpts(nil)
 
-		flNetwork         = cmd.Bool([]string{"#n", "#-networking"}, true, "Enable networking for this container")
-		flPrivileged      = cmd.Bool([]string{"#privileged", "-privileged"}, false, "Give extended privileges to this container")
-		flPublishAll      = cmd.Bool([]string{"P", "-publish-all"}, false, "Publish all exposed ports to the host interfaces")
-		flStdin           = cmd.Bool([]string{"i", "-interactive"}, false, "Keep STDIN open even if not attached")
-		flTty             = cmd.Bool([]string{"t", "-tty"}, false, "Allocate a pseudo-TTY")
-		flContainerIDFile = cmd.String([]string{"#cidfile", "-cidfile"}, "", "Write the container ID to the file")
-		flEntrypoint      = cmd.String([]string{"#entrypoint", "-entrypoint"}, "", "Overwrite the default ENTRYPOINT of the image")
-		flHostname        = cmd.String([]string{"h", "-hostname"}, "", "Container host name")
-		flMemoryString    = cmd.String([]string{"m", "-memory"}, "", "Memory limit (format: <number><optional unit>, where unit = b, k, m or g)")
-		flUser            = cmd.String([]string{"u", "-user"}, "", "Username or UID")
-		flWorkingDir      = cmd.String([]string{"w", "-workdir"}, "", "Working directory inside the container")
-		flCpuShares       = cmd.Int64([]string{"c", "-cpu-shares"}, 0, "CPU shares (relative weight)")
-		flCpuset          = cmd.String([]string{"-cpuset"}, "", "CPUs in which to allow execution (0-3, 0,1)")
-		flNetMode         = cmd.String([]string{"-net"}, "bridge", "Set the Network mode for the container\n'bridge': creates a new network stack for the container on the docker bridge\n'none': no networking for this container\n'container:<name|id>': reuses another container network stack\n'host': use the host network stack inside the container.  Note: the host mode gives the container full access to local system services such as D-bus and is therefore considered insecure.")
-		flMacAddress      = cmd.String([]string{"-mac-address"}, "", "Container MAC address (ex: 92:d0:c6:0a:29:33)")
-		flRestartPolicy   = cmd.String([]string{"-restart"}, "", "Restart policy to apply when a container exits (no, on-failure[:max-retry], always)")
+		flEnableGlobalIPv6 = cmd.Bool([]string{"-global-ipv6"}, false, "Add global IPv6 address to this container")
+		flNetwork          = cmd.Bool([]string{"#n", "#-networking"}, true, "Enable networking for this container")
+		flPrivileged       = cmd.Bool([]string{"#privileged", "-privileged"}, false, "Give extended privileges to this container")
+		flPublishAll       = cmd.Bool([]string{"P", "-publish-all"}, false, "Publish all exposed ports to the host interfaces")
+		flStdin            = cmd.Bool([]string{"i", "-interactive"}, false, "Keep STDIN open even if not attached")
+		flTty              = cmd.Bool([]string{"t", "-tty"}, false, "Allocate a pseudo-TTY")
+		flContainerIDFile  = cmd.String([]string{"#cidfile", "-cidfile"}, "", "Write the container ID to the file")
+		flEntrypoint       = cmd.String([]string{"#entrypoint", "-entrypoint"}, "", "Overwrite the default ENTRYPOINT of the image")
+		flHostname         = cmd.String([]string{"h", "-hostname"}, "", "Container host name")
+		flMemoryString     = cmd.String([]string{"m", "-memory"}, "", "Memory limit (format: <number><optional unit>, where unit = b, k, m or g)")
+		flUser             = cmd.String([]string{"u", "-user"}, "", "Username or UID")
+		flWorkingDir       = cmd.String([]string{"w", "-workdir"}, "", "Working directory inside the container")
+		flCpuShares        = cmd.Int64([]string{"c", "-cpu-shares"}, 0, "CPU shares (relative weight)")
+		flCpuset           = cmd.String([]string{"-cpuset"}, "", "CPUs in which to allow execution (0-3, 0,1)")
+		flNetMode          = cmd.String([]string{"-net"}, "bridge", "Set the Network mode for the container\n'bridge': creates a new network stack for the container on the docker bridge\n'none': no networking for this container\n'container:<name|id>': reuses another container network stack\n'host': use the host network stack inside the container.  Note: the host mode gives the container full access to local system services such as D-bus and is therefore considered insecure.")
+		flMacAddress       = cmd.String([]string{"-mac-address"}, "", "Container MAC address (ex: 92:d0:c6:0a:29:33)")
+		flRestartPolicy    = cmd.String([]string{"-restart"}, "", "Restart policy to apply when a container exits (no, on-failure[:max-retry], always)")
 	)
 
 	cmd.Var(&flAttach, []string{"a", "-attach"}, "Attach to STDIN, STDOUT or STDERR.")
@@ -235,27 +236,28 @@ func Parse(cmd *flag.FlagSet, args []string, sysInfo *sysinfo.SysInfo) (*Config,
 	}
 
 	config := &Config{
-		Hostname:        hostname,
-		Domainname:      domainname,
-		PortSpecs:       nil, // Deprecated
-		ExposedPorts:    ports,
-		User:            *flUser,
-		Tty:             *flTty,
-		NetworkDisabled: !*flNetwork,
-		OpenStdin:       *flStdin,
-		Memory:          flMemory,
-		CpuShares:       *flCpuShares,
-		Cpuset:          *flCpuset,
-		AttachStdin:     attachStdin,
-		AttachStdout:    attachStdout,
-		AttachStderr:    attachStderr,
-		Env:             envVariables,
-		Cmd:             runCmd,
-		Image:           image,
-		Volumes:         flVolumes.GetMap(),
-		MacAddress:      *flMacAddress,
-		Entrypoint:      entrypoint,
-		WorkingDir:      *flWorkingDir,
+		Hostname:         hostname,
+		Domainname:       domainname,
+		PortSpecs:        nil, // Deprecated
+		ExposedPorts:     ports,
+		User:             *flUser,
+		Tty:              *flTty,
+		NetworkDisabled:  !*flNetwork,
+		OpenStdin:        *flStdin,
+		Memory:           flMemory,
+		CpuShares:        *flCpuShares,
+		Cpuset:           *flCpuset,
+		AttachStdin:      attachStdin,
+		AttachStdout:     attachStdout,
+		AttachStderr:     attachStderr,
+		Env:              envVariables,
+		Cmd:              runCmd,
+		Image:            image,
+		Volumes:          flVolumes.GetMap(),
+		MacAddress:       *flMacAddress,
+		EnableGlobalIPv6: *flEnableGlobalIPv6,
+		Entrypoint:       entrypoint,
+		WorkingDir:       *flWorkingDir,
 	}
 
 	hostConfig := &HostConfig{

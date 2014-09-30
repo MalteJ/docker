@@ -14,7 +14,11 @@ type NetworkSettings struct {
 	IPPrefixLen            int
 	LinkLocalIPv6Address   string
 	LinkLocalIPv6PrefixLen int
+	EnableGlobalIPv6       bool
+	GlobalIPv6Address      string 
+	GlobalIPv6PrefixLen    int    
 	Gateway                string
+	IPv6Gateway            string 
 	Bridge                 string
 	PortMapping            map[string]PortMapping // Deprecated
 	Ports                  nat.PortMap
