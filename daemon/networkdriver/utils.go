@@ -75,7 +75,7 @@ func NetworkRange(network *net.IPNet) (net.IP, net.IP) {
 }
 
 // Return the IPv4 address of a network interface
-func GetIfaceAddr(name string) (net.Addr, error) {
+func GetIfaceAddr(name string, enableIPv6 bool) (net.Addr, net.Addr, error) {
 	iface, err := net.InterfaceByName(name)
 	if err != nil {
 		return nil, nil, err

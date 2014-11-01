@@ -58,7 +58,7 @@ type execStart struct {
 // http://www.freedesktop.org/software/systemd/man/systemd.service.html#ExecStart=
 func PropExecStart(command []string, uncleanIsFailure bool) Property {
 	execStarts := []execStart{
-		{
+		execStart{
 			Path:             command[0],
 			Args:             command,
 			UncleanIsFailure: uncleanIsFailure,

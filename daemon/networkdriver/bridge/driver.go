@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
@@ -487,26 +488,22 @@ func generateMacAddr(ip net.IP) net.HardwareAddr {
 
 // Allocate a network interface
 func Allocate(job *engine.Job) engine.Status {
-	enableGlobalIPv6 := job.GetenvBool("EnableGlobalIPv6")
 	var (
 		ip            net.IP
 		globalIPv6    net.IP
-		mac           string
+		mac           net.HardwareAddr
 		err           error
 		id            = job.Args[0]
 		requestedIP   = net.ParseIP(job.Getenv("RequestedIP"))   // may be nil
 		requestedIPv6 = net.ParseIP(job.Getenv("RequestedIPv6")) // may be nil
+	  enableGlobalIPv6 = job.GetenvBool("EnableGlobalIPv6")
 	)
 
-	if requestedMac == "" {
-		mac = randMacAddr()
-		log.Infof("Using new generated MAC address %s", mac)
+	if requestedIP != nil {
+		ip, err = ipallocator.RequestIP(bridgeNetwork, requestedIP)
 	} else {
-		mac = requestedMac
-		log.Infof("Using requested MAC address %s", mac)
+		ip, err = ipallocator.RequestIP(bridgeNetwork, nil)
 	}
-
-	ip, err = ipallocator.RequestIP(bridgeNetwork, requestedIP)
 	if err != nil {
 		return job.Error(err)
 	}
@@ -542,13 +539,13 @@ func Allocate(job *engine.Job) engine.Status {
 	out.SetInt("IPPrefixLen", size)
 
 	// if linklocal IPv6
-	localIPv6Net, err := linkLocalIPv6FromMac(mac)
+	localIPv6Net, err := linkLocalIPv6FromMac(mac.String())
 	if err != nil {
 		return job.Error(err)
 	}
 	localIPv6, _, _ := net.ParseCIDR(localIPv6Net)
 	out.Set("LinkLocalIPv6", localIPv6.String())
-	out.Set("MacAddress", mac)
+	out.Set("MacAddress", mac.String())
 
 	if enableGlobalIPv6 {
 		out.SetBool("EnableGlobalIPv6", true)
