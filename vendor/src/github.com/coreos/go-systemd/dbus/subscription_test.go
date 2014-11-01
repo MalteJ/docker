@@ -87,5 +87,3 @@ func TestSubscribeUnit(t *testing.T) {
 success:
 	return
 }
-
-

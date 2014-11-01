@@ -10,6 +10,7 @@ import (
 
 	"github.com/docker/docker/daemon/execdriver"
 	"github.com/docker/docker/daemon/execdriver/native/template"
+	"github.com/docker/docker/pkg/log"
 	"github.com/docker/libcontainer"
 	"github.com/docker/libcontainer/apparmor"
 	"github.com/docker/libcontainer/devices"
@@ -94,12 +95,18 @@ func (d *driver) createNetwork(container *libcontainer.Config, c *execdriver.Com
 	if c.Network.Interface != nil {
 		vethNetwork := libcontainer.Network{
 			Mtu:        c.Network.Mtu,
+			MacAddress: c.Network.Interface.MacAddress,
 			Address:    fmt.Sprintf("%s/%d", c.Network.Interface.IPAddress, c.Network.Interface.IPPrefixLen),
 			MacAddress: c.Network.Interface.MacAddress,
 			Gateway:    c.Network.Interface.Gateway,
 			Type:       "veth",
 			Bridge:     c.Network.Interface.Bridge,
 			VethPrefix: "veth",
+		}
+		if c.Network.Interface.EnableGlobalIPv6 {
+			log.Infof("native driver: providing IPv6 network settings")
+			vethNetwork.IPv6Address = fmt.Sprintf("%s/%d", c.Network.Interface.GlobalIPv6Address, c.Network.Interface.GlobalIPv6PrefixLen)
+			vethNetwork.IPv6Gateway = c.Network.Interface.IPv6Gateway
 		}
 		container.Networks = append(container.Networks, &vethNetwork)
 	}

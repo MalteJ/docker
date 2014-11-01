@@ -1,8 +1,11 @@
 package bridge
 
 import (
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
@@ -29,6 +32,7 @@ const (
 // Network interface represents the networking stack of a container
 type networkInterface struct {
 	IP           net.IP
+	IPv6         net.IP
 	PortMappings []net.Addr // there are mappings to the host interfaces
 }
 
@@ -71,8 +75,10 @@ var (
 		"192.168.44.1/24",
 	}
 
-	bridgeIface   string
-	bridgeNetwork *net.IPNet
+	bridgeIface     string
+	bridgeNetwork   *net.IPNet
+	globalV6Network *net.IPNet
+	bridgeIPv6      string
 
 	defaultBindingIP  = net.ParseIP("0.0.0.0")
 	currentInterfaces = ifaces{c: make(map[string]*networkInterface)}
@@ -80,13 +86,18 @@ var (
 
 func InitDriver(job *engine.Job) engine.Status {
 	var (
-		network        *net.IPNet
+		networkv4      *net.IPNet
+		networkv6      *net.IPNet
+		addrv4         net.Addr
+		addrv6         net.Addr
 		enableIPTables = job.GetenvBool("EnableIptables")
+		enableIPv6     = job.GetenvBool("EnableIPv6")
 		icc            = job.GetenvBool("InterContainerCommunication")
 		ipMasq         = job.GetenvBool("EnableIpMasq")
 		ipForward      = job.GetenvBool("EnableIpForward")
 		bridgeIP       = job.Getenv("BridgeIP")
 		fixedCIDR      = job.Getenv("FixedCIDR")
+		fixedCIDRv6    = job.Getenv("FixedCIDRv6")
 	)
 
 	if defaultIP := job.Getenv("DefaultBindingIP"); defaultIP != "" {
@@ -100,47 +111,80 @@ func InitDriver(job *engine.Job) engine.Status {
 		bridgeIface = DefaultNetworkBridge
 	}
 
-	addr, err := networkdriver.GetIfaceAddr(bridgeIface)
+	log.Infof("getting local bridge device's IP...")
+	addrv4, addrv6, err := networkdriver.GetIfaceAddr(bridgeIface, enableIPv6)
+
 	if err != nil {
+		log.Infof("Creating Bridge interface...")
+		// No Bridge existant. Create one
 		// If we're not using the default bridge, fail without trying to create it
 		if !usingDefaultBridge {
 			return job.Error(err)
 		}
-		// If the bridge interface is not found (or has no address), try to create it and/or add an address
-		if err := configureBridge(bridgeIP); err != nil {
-			return job.Error(err)
-		}
 
-		addr, err = networkdriver.GetIfaceAddr(bridgeIface)
+		mac := randMacAddr()
+		bridgeIPv6Network, err := linkLocalIPv6FromMac(mac)
 		if err != nil {
 			return job.Error(err)
 		}
-		network = addr.(*net.IPNet)
+
+		// If the iface is not found, try to create it
+		if err := configureBridge(bridgeIP, mac, bridgeIPv6Network, enableIPv6); err != nil {
+			return job.Error(err)
+		}
+
+		addrv4, addrv6, err = networkdriver.GetIfaceAddr(bridgeIface, enableIPv6)
+		if err != nil {
+			return job.Error(err)
+		}
 	} else {
-		network = addr.(*net.IPNet)
+		log.Infof("Bridge exists already. Getting info...")
 		// validate that the bridge ip matches the ip specified by BridgeIP
 		if bridgeIP != "" {
 			bip, _, err := net.ParseCIDR(bridgeIP)
 			if err != nil {
 				return job.Error(err)
 			}
-			if !network.IP.Equal(bip) {
-				return job.Errorf("bridge ip (%s) does not match existing bridge configuration %s", network.IP, bip)
+			if !networkv4.IP.Equal(bip) {
+				return job.Errorf("bridge ip (%s) does not match existing bridge configuration %s", networkv4.IP, bip)
 			}
 		}
 	}
 
+	networkv4 = addrv4.(*net.IPNet)
+
+	log.Infof("enableIPv6 = %t", enableIPv6)
+	if enableIPv6 {
+		if addrv6 == nil {
+			return job.Error(errors.New("IPv6 enabled but no IPv6 detected #6"))
+		}
+		networkv6 = addrv6.(*net.IPNet)
+		bridgeIPv6 = networkv6.IP.String()
+	}
+
 	// Configure iptables for link support
 	if enableIPTables {
-		if err := setupIPTables(addr, icc, ipMasq); err != nil {
+		if err := setupIPTables(addrv4, icc, ipMasq); err != nil {
 			return job.Error(err)
 		}
+
+		// TODO: Implement IP6Tables
 	}
 
 	if ipForward {
 		// Enable IPv4 forwarding
 		if err := ioutil.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte{'1', '\n'}, 0644); err != nil {
 			job.Logf("WARNING: unable to enable IPv4 forwarding: %s\n", err)
+		}
+
+		if enableIPv6 {
+			// Enable IPv6 forwarding
+			if err := ioutil.WriteFile("/proc/sys/net/ipv6/conf/default/forwarding", []byte{'1', '\n'}, 0644); err != nil {
+				job.Logf("WARNING: unable to enable IPv6 default forwarding: %s\n", err)
+			}
+			if err := ioutil.WriteFile("/proc/sys/net/ipv6/conf/all/forwarding", []byte{'1', '\n'}, 0644); err != nil {
+				job.Logf("WARNING: unable to enable IPv6 all forwarding: %s\n", err)
+			}
 		}
 	}
 
@@ -149,15 +193,36 @@ func InitDriver(job *engine.Job) engine.Status {
 		return job.Error(err)
 	}
 
+	/*
+		if enableIPv6 {
+			if err := ip6tables.RemoveExistingChain("DOCKER"); err != nil {
+				return job.Error(err)
+			}
+		}
+	*/
+
 	if enableIPTables {
 		chain, err := iptables.NewChain("DOCKER", bridgeIface)
 		if err != nil {
 			return job.Error(err)
 		}
 		portmapper.SetIptablesChain(chain)
+
+		/*
+			if enableIPv6 {
+				return errors.New("IPv6 + iptables is not supported yet")
+				chainv6, err := ip6tables.NewChain("DOCKER", bridgeIface)
+				if err != nil {
+					return job.Error(err)
+				}
+
+				chainv6 = nil
+				portmapper.SetIp6tablesChain(chainv6)
+			}
+		*/
 	}
 
-	bridgeNetwork = network
+	bridgeNetwork = networkv4
 	if fixedCIDR != "" {
 		_, subnet, err := net.ParseCIDR(fixedCIDR)
 		if err != nil {
@@ -169,8 +234,23 @@ func InitDriver(job *engine.Job) engine.Status {
 		}
 	}
 
+	if fixedCIDRv6 != "" {
+		_, subnet, err := net.ParseCIDR(fixedCIDRv6)
+		if err != nil {
+			return job.Error(err)
+		}
+		log.Debugf("Subnet: %v", subnet)
+		if err := ipallocator.RegisterSubnet(subnet, subnet); err != nil {
+			return job.Error(err)
+		}
+		globalV6Network = subnet
+	}
+
 	// https://github.com/docker/docker/issues/2768
 	job.Eng.Hack_SetGlobalVar("httpapi.bridgeIP", bridgeNetwork.IP)
+	if enableIPv6 {
+		job.Eng.Hack_SetGlobalVar("httpapi.bridgeIPv6", globalV6Network.IP)
+	}
 
 	for name, f := range map[string]engine.Handler{
 		"allocate_interface": Allocate,
@@ -185,8 +265,10 @@ func InitDriver(job *engine.Job) engine.Status {
 	return engine.StatusOK
 }
 
+// TODO: Implement IP6Tables support
 func setupIPTables(addr net.Addr, icc, ipmasq bool) error {
 	// Enable NAT
+	return nil
 
 	if ipmasq {
 		natArgs := []string{"POSTROUTING", "-t", "nat", "-s", addr.String(), "!", "-o", bridgeIface, "-j", "MASQUERADE"}
@@ -258,7 +340,7 @@ func setupIPTables(addr net.Addr, icc, ipmasq bool) error {
 // If the bridge `ifaceName` already exists, it will only perform the IP address association with the existing
 // bridge (fixes issue #8444)
 // If an address which doesn't conflict with existing interfaces can't be found, an error is returned.
-func configureBridge(bridgeIP string) error {
+func configureBridge(bridgeIP string, mac string, bridgeIPv6 string, enableIPv6 bool) error {
 	nameservers := []string{}
 	resolvConf, _ := resolvconf.Get()
 	// we don't check for an error here, because we don't really care
@@ -298,7 +380,7 @@ func configureBridge(bridgeIP string) error {
 	}
 	log.Debugf("Creating bridge %s with network %s", bridgeIface, ifaceAddr)
 
-	if err := createBridgeIface(bridgeIface); err != nil {
+	if err := createBridgeIface(bridgeIface, mac, enableIPv6); err != nil {
 		// the bridge may already exist, therefore we can ignore an "exists" error
 		if !os.IsExist(err) {
 			return err
@@ -318,19 +400,64 @@ func configureBridge(bridgeIP string) error {
 	if netlink.NetworkLinkAddIp(iface, ipAddr, ipNet); err != nil {
 		return fmt.Errorf("Unable to add private network: %s", err)
 	}
+
+	if enableIPv6 {
+		ipAddr6, ipNet6, err := net.ParseCIDR(bridgeIPv6)
+		if err != nil {
+			log.Errorf("BridgeIPv6 parsing failed")
+			return err
+		}
+
+		if netlink.NetworkLinkAddIp(iface, ipAddr6, ipNet6); err != nil {
+			return fmt.Errorf("Unable to add private IPv6 network: %s", err)
+		}
+	}
+
 	if err := netlink.NetworkLinkUp(iface); err != nil {
 		return fmt.Errorf("Unable to start network bridge: %s", err)
 	}
 	return nil
 }
 
-func createBridgeIface(name string) error {
+func randMacAddr() string {
+	hw := make(net.HardwareAddr, 6)
+	for i := 0; i < 6; i++ {
+		hw[i] = byte(rand.Intn(255))
+	}
+	hw[0] &^= 0x1 // clear multicast bit
+	hw[0] |= 0x2  // set local assignment bit (IEEE802)
+
+	return hw.String()
+}
+
+func linkLocalIPv6FromMac(mac string) (string, error) {
+	hx := strings.Replace(mac, ":", "", -1)
+	hw, err := hex.DecodeString(hx)
+	if err != nil {
+		return "", errors.New("Could not parse MAC address " + mac)
+	}
+
+	hw[0] ^= 0x2
+
+	return fmt.Sprintf("fe80::%x%x:%xff:fe%x:%x%x/64", hw[0], hw[1], hw[2], hw[3], hw[4], hw[5]), nil
+}
+
+func createBridgeIface(name string, mac string, forceMac bool) error {
+	if e := netlink.CreateBridge(name, false); e != nil {
+		return e
+	}
 	kv, err := kernel.GetKernelVersion()
+	if err != nil {
+		return err
+	}
 	// only set the bridge's mac address if the kernel version is > 3.3
 	// before that it was not supported
-	setBridgeMacAddr := err == nil && (kv.Kernel >= 3 && kv.Major >= 3)
+	setBridgeMacAddr := (kv.Kernel >= 3 && kv.Major >= 3)
+	if forceMac && !setBridgeMacAddr {
+		return errors.New("Could not set MAC to bridge interface due to Kernel version < 3.3")
+	}
 	log.Debugf("setting bridge mac address = %v", setBridgeMacAddr)
-	return netlink.CreateBridge(name, setBridgeMacAddr)
+	return netlink.SetMacAddress(name, mac)
 }
 
 // Generate a IEEE802 compliant MAC address from the given IP address.
@@ -360,19 +487,26 @@ func generateMacAddr(ip net.IP) net.HardwareAddr {
 
 // Allocate a network interface
 func Allocate(job *engine.Job) engine.Status {
+	enableGlobalIPv6 := job.GetenvBool("EnableGlobalIPv6")
 	var (
-		ip          net.IP
-		mac         net.HardwareAddr
-		err         error
-		id          = job.Args[0]
-		requestedIP = net.ParseIP(job.Getenv("RequestedIP"))
+		ip            net.IP
+		globalIPv6    net.IP
+		mac           string
+		err           error
+		id            = job.Args[0]
+		requestedIP   = net.ParseIP(job.Getenv("RequestedIP"))   // may be nil
+		requestedIPv6 = net.ParseIP(job.Getenv("RequestedIPv6")) // may be nil
 	)
 
-	if requestedIP != nil {
-		ip, err = ipallocator.RequestIP(bridgeNetwork, requestedIP)
+	if requestedMac == "" {
+		mac = randMacAddr()
+		log.Infof("Using new generated MAC address %s", mac)
 	} else {
-		ip, err = ipallocator.RequestIP(bridgeNetwork, nil)
+		mac = requestedMac
+		log.Infof("Using requested MAC address %s", mac)
 	}
+
+	ip, err = ipallocator.RequestIP(bridgeNetwork, requestedIP)
 	if err != nil {
 		return job.Error(err)
 	}
@@ -380,6 +514,21 @@ func Allocate(job *engine.Job) engine.Status {
 	// If no explicit mac address was given, generate a random one.
 	if mac, err = net.ParseMAC(job.Getenv("RequestedMac")); err != nil {
 		mac = generateMacAddr(ip)
+	}
+
+	if enableGlobalIPv6 {
+		log.Infof("Allocate: IPv6 enabled")
+		if globalV6Network == nil {
+			log.Errorf("ERROR: Allocate: globalV6Network = nil!\n")
+		}
+		globalIPv6, err = ipallocator.RequestIP(globalV6Network, requestedIPv6)
+		if err != nil {
+			log.Errorf("Allocator: RequestIP v6: %s", err.Error())
+			return job.Error(err)
+		}
+		log.Infof("Allocated IPv6 %s", globalIPv6)
+	} else {
+		log.Infof("Allocate: IPv6 disabled")
 	}
 
 	out := engine.Env{}
@@ -392,8 +541,28 @@ func Allocate(job *engine.Job) engine.Status {
 	size, _ := bridgeNetwork.Mask.Size()
 	out.SetInt("IPPrefixLen", size)
 
+	// if linklocal IPv6
+	localIPv6Net, err := linkLocalIPv6FromMac(mac)
+	if err != nil {
+		return job.Error(err)
+	}
+	localIPv6, _, _ := net.ParseCIDR(localIPv6Net)
+	out.Set("LinkLocalIPv6", localIPv6.String())
+	out.Set("MacAddress", mac)
+
+	if enableGlobalIPv6 {
+		out.SetBool("EnableGlobalIPv6", true)
+		out.Set("GlobalIPv6", globalIPv6.String())
+		out.Set("Maskv6", globalV6Network.Mask.String())
+		sizev6, _ := globalV6Network.Mask.Size()
+		out.SetInt("GlobalIPv6PrefixLen", sizev6)
+		out.Set("IPv6Gateway", bridgeIPv6)
+		log.Infof("Setting IPv6Gateway: %s", bridgeIPv6)
+	}
+
 	currentInterfaces.Set(id, &networkInterface{
-		IP: ip,
+		IP:   ip,
+		IPv6: globalIPv6,
 	})
 
 	out.WriteTo(job.Stdout)
@@ -403,6 +572,8 @@ func Allocate(job *engine.Job) engine.Status {
 
 // release an interface for a select ip
 func Release(job *engine.Job) engine.Status {
+	enableGlobalIPv6 := job.GetenvBool("EnableGlobalIPv6")
+
 	var (
 		id                 = job.Args[0]
 		containerInterface = currentInterfaces.Get(id)
@@ -419,7 +590,12 @@ func Release(job *engine.Job) engine.Status {
 	}
 
 	if err := ipallocator.ReleaseIP(bridgeNetwork, containerInterface.IP); err != nil {
-		log.Infof("Unable to release ip %s", err)
+		log.Infof("Unable to release IPv4 %s", err)
+	}
+	if enableGlobalIPv6 {
+		if err := ipallocator.ReleaseIP(globalV6Network, containerInterface.IPv6); err != nil {
+			log.Infof("Unable to release IPv6 %s", err)
+		}
 	}
 	return engine.StatusOK
 }

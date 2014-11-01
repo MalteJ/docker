@@ -217,6 +217,11 @@ func populateCommand(c *Container, env []string) error {
 				IPAddress:   network.IPAddress,
 				IPPrefixLen: network.IPPrefixLen,
 				MacAddress:  network.MacAddress,
+				EnableGlobalIPv6:     network.EnableGlobalIPv6,
+				LinkLocalIPv6Address: network.LinkLocalIPv6Address,
+				GlobalIPv6Address:    network.GlobalIPv6Address,
+				GlobalIPv6PrefixLen:  network.GlobalIPv6PrefixLen,
+				IPv6Gateway:          network.IPv6Gateway,
 			}
 		}
 	case "container":
@@ -458,6 +463,7 @@ func (container *Container) AllocateNetwork() error {
 
 	job := eng.Job("allocate_interface", container.ID)
 	job.Setenv("RequestedMac", container.Config.MacAddress)
+	job.SetenvBool("EnableGlobalIPv6", container.Config.EnableGlobalIPv6)
 	if env, err = job.Stdout.AddEnv(); err != nil {
 		return err
 	}
@@ -518,6 +524,13 @@ func (container *Container) AllocateNetwork() error {
 	container.NetworkSettings.IPPrefixLen = env.GetInt("IPPrefixLen")
 	container.NetworkSettings.MacAddress = env.Get("MacAddress")
 	container.NetworkSettings.Gateway = env.Get("Gateway")
+	container.NetworkSettings.MacAddress = env.Get("MacAddress")
+	container.NetworkSettings.LinkLocalIPv6Address = env.Get("LinkLocalIPv6")
+	container.NetworkSettings.LinkLocalIPv6PrefixLen = 64
+	container.NetworkSettings.EnableGlobalIPv6 = env.GetBool("EnableGlobalIPv6")
+	container.NetworkSettings.GlobalIPv6Address = env.Get("GlobalIPv6")
+	container.NetworkSettings.GlobalIPv6PrefixLen = env.GetInt("GlobalIPv6PrefixLen")
+	container.NetworkSettings.IPv6Gateway = env.Get("IPv6Gateway")
 
 	return nil
 }
