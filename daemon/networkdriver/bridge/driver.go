@@ -169,7 +169,6 @@ func InitDriver(job *engine.Job) engine.Status {
 			return job.Error(err)
 		}
 
-		// TODO: Implement IP6Tables
 	}
 
 	if ipForward {
@@ -194,33 +193,12 @@ func InitDriver(job *engine.Job) engine.Status {
 		return job.Error(err)
 	}
 
-	/*
-		if enableIPv6 {
-			if err := ip6tables.RemoveExistingChain("DOCKER"); err != nil {
-				return job.Error(err)
-			}
-		}
-	*/
-
 	if enableIPTables {
 		chain, err := iptables.NewChain("DOCKER", bridgeIface)
 		if err != nil {
 			return job.Error(err)
 		}
 		portmapper.SetIptablesChain(chain)
-
-		/*
-			if enableIPv6 {
-				return errors.New("IPv6 + iptables is not supported yet")
-				chainv6, err := ip6tables.NewChain("DOCKER", bridgeIface)
-				if err != nil {
-					return job.Error(err)
-				}
-
-				chainv6 = nil
-				portmapper.SetIp6tablesChain(chainv6)
-			}
-		*/
 	}
 
 	bridgeNetwork = networkv4
@@ -249,9 +227,6 @@ func InitDriver(job *engine.Job) engine.Status {
 
 	// https://github.com/docker/docker/issues/2768
 	job.Eng.Hack_SetGlobalVar("httpapi.bridgeIP", bridgeNetwork.IP)
-	if enableIPv6 {
-		job.Eng.Hack_SetGlobalVar("httpapi.bridgeIPv6", globalV6Network.IP)
-	}
 
 	for name, f := range map[string]engine.Handler{
 		"allocate_interface": Allocate,
@@ -266,7 +241,6 @@ func InitDriver(job *engine.Job) engine.Status {
 	return engine.StatusOK
 }
 
-// TODO: Implement IP6Tables support
 func setupIPTables(addr net.Addr, icc, ipmasq bool) error {
 	// Enable NAT
 	return nil
