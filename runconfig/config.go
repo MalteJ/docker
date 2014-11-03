@@ -32,29 +32,31 @@ type Config struct {
 	Entrypoint      []string
 	NetworkDisabled bool
 	MacAddress      string
+	EnableGlobalIPv6 bool
 	OnBuild         []string
 	SecurityOpt     []string
 }
 
 func ContainerConfigFromJob(job *engine.Job) *Config {
 	config := &Config{
-		Hostname:        job.Getenv("Hostname"),
-		Domainname:      job.Getenv("Domainname"),
-		User:            job.Getenv("User"),
-		Memory:          job.GetenvInt64("Memory"),
-		MemorySwap:      job.GetenvInt64("MemorySwap"),
-		CpuShares:       job.GetenvInt64("CpuShares"),
-		Cpuset:          job.Getenv("Cpuset"),
-		AttachStdin:     job.GetenvBool("AttachStdin"),
-		AttachStdout:    job.GetenvBool("AttachStdout"),
-		AttachStderr:    job.GetenvBool("AttachStderr"),
-		Tty:             job.GetenvBool("Tty"),
-		OpenStdin:       job.GetenvBool("OpenStdin"),
-		StdinOnce:       job.GetenvBool("StdinOnce"),
-		Image:           job.Getenv("Image"),
-		WorkingDir:      job.Getenv("WorkingDir"),
-		NetworkDisabled: job.GetenvBool("NetworkDisabled"),
-		MacAddress:      job.Getenv("MacAddress"),
+		Hostname:         job.Getenv("Hostname"),
+		Domainname:       job.Getenv("Domainname"),
+		User:             job.Getenv("User"),
+		Memory:           job.GetenvInt64("Memory"),
+		MemorySwap:       job.GetenvInt64("MemorySwap"),
+		CpuShares:        job.GetenvInt64("CpuShares"),
+		Cpuset:           job.Getenv("Cpuset"),
+		AttachStdin:      job.GetenvBool("AttachStdin"),
+		AttachStdout:     job.GetenvBool("AttachStdout"),
+		AttachStderr:     job.GetenvBool("AttachStderr"),
+		Tty:              job.GetenvBool("Tty"),
+		OpenStdin:        job.GetenvBool("OpenStdin"),
+		StdinOnce:        job.GetenvBool("StdinOnce"),
+		Image:            job.Getenv("Image"),
+		WorkingDir:       job.Getenv("WorkingDir"),
+		NetworkDisabled:  job.GetenvBool("NetworkDisabled"),
+		MacAddress:       job.Getenv("MacAddress"),
+		EnableGlobalIPv6: job.GetenvBool("EnableGlobalIPv6"),
 	}
 	job.GetenvJson("ExposedPorts", &config.ExposedPorts)
 	job.GetenvJson("Volumes", &config.Volumes)
