@@ -1,12 +1,14 @@
 package bridge
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	log "github.com/Sirupsen/logrus"
@@ -75,6 +77,7 @@ var (
 
 	bridgeIface       string
 	bridgeIPv4Network *net.IPNet
+	bridgeIPv6Addr    net.IP
 	globalIPv6Network *net.IPNet
 
 	defaultBindingIP  = net.ParseIP("0.0.0.0")
@@ -165,6 +168,7 @@ func InitDriver(job *engine.Job) engine.Status {
 		if len(addrsv6) == 0 {
 			return job.Error(errors.New("IPv6 enabled but no IPv6 detected"))
 		}
+		bridgeIPv6Addr = networkv6.IP
 	}
 
 	// Configure iptables for link support
@@ -431,14 +435,29 @@ func generateMacAddr(ip net.IP) net.HardwareAddr {
 	return hw
 }
 
+func linkLocalIPv6FromMac(mac string) (string, error) {
+	hx := strings.Replace(mac, ":", "", -1)
+	hw, err := hex.DecodeString(hx)
+	if err != nil {
+		return "", errors.New("Could not parse MAC address " + mac)
+	}
+
+	hw[0] ^= 0x2
+
+	return fmt.Sprintf("fe80::%x%x:%xff:fe%x:%x%x/64", hw[0], hw[1], hw[2], hw[3], hw[4], hw[5]), nil
+}
+
 // Allocate a network interface
 func Allocate(job *engine.Job) engine.Status {
 	var (
-		ip          net.IP
-		mac         net.HardwareAddr
-		err         error
-		id          = job.Args[0]
-		requestedIP = net.ParseIP(job.Getenv("RequestedIP"))
+		ip               net.IP
+		mac              net.HardwareAddr
+		err              error
+		id               = job.Args[0]
+		requestedIP      = net.ParseIP(job.Getenv("RequestedIP"))
+		requestedIPv6    = net.ParseIP(job.Getenv("RequestedIPv6"))
+		enableGlobalIPv6 = job.GetenvBool("EnableGlobalIPv6")
+		globalIPv6       net.IP
 	)
 
 	if requestedIP != nil {
@@ -455,6 +474,21 @@ func Allocate(job *engine.Job) engine.Status {
 		mac = generateMacAddr(ip)
 	}
 
+	if enableGlobalIPv6 {
+		log.Infof("Allocate: IPv6 enabled")
+		if globalIPv6Network == nil {
+			log.Errorf("ERROR: Allocate: globalIPv6Network = nil!\n")
+		}
+		globalIPv6, err = ipallocator.RequestIP(globalIPv6Network, requestedIPv6)
+		if err != nil {
+			log.Errorf("Allocator: RequestIP v6: %s", err.Error())
+			return job.Error(err)
+		}
+		log.Infof("Allocated IPv6 %s", globalIPv6)
+	} else {
+		log.Infof("Allocate: IPv6 disabled")
+	}
+
 	out := engine.Env{}
 	out.Set("IP", ip.String())
 	out.Set("Mask", bridgeIPv4Network.Mask.String())
@@ -465,8 +499,26 @@ func Allocate(job *engine.Job) engine.Status {
 	size, _ := bridgeIPv4Network.Mask.Size()
 	out.SetInt("IPPrefixLen", size)
 
+	// if linklocal IPv6
+	localIPv6Net, err := linkLocalIPv6FromMac(mac.String())
+	if err != nil {
+		return job.Error(err)
+	}
+	localIPv6, _, _ := net.ParseCIDR(localIPv6Net)
+	out.Set("LinkLocalIPv6", localIPv6.String())
+	out.Set("MacAddress", mac.String())
+
+	if enableGlobalIPv6 {
+		out.SetBool("EnableGlobalIPv6", true)
+		out.Set("GlobalIPv6", globalIPv6.String())
+		sizev6, _ := globalIPv6Network.Mask.Size()
+		out.SetInt("GlobalIPv6PrefixLen", sizev6)
+		out.Set("IPv6Gateway", bridgeIPv6Addr.String())
+	}
+
 	currentInterfaces.Set(id, &networkInterface{
-		IP: ip,
+		IP:   ip,
+		IPv6: globalIPv6,
 	})
 
 	out.WriteTo(job.Stdout)
@@ -476,6 +528,8 @@ func Allocate(job *engine.Job) engine.Status {
 
 // release an interface for a select ip
 func Release(job *engine.Job) engine.Status {
+	enableGlobalIPv6 := job.GetenvBool("EnableGlobalIPv6")
+
 	var (
 		id                 = job.Args[0]
 		containerInterface = currentInterfaces.Get(id)
@@ -492,7 +546,12 @@ func Release(job *engine.Job) engine.Status {
 	}
 
 	if err := ipallocator.ReleaseIP(bridgeIPv4Network, containerInterface.IP); err != nil {
-		log.Infof("Unable to release ip %s", err)
+		log.Infof("Unable to release IPv4 %s", err)
+	}
+	if enableGlobalIPv6 {
+		if err := ipallocator.ReleaseIP(globalIPv6Network, containerInterface.IPv6); err != nil {
+			log.Infof("Unable to release IPv6 %s", err)
+		}
 	}
 	return engine.StatusOK
 }

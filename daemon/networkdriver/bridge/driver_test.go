@@ -2,6 +2,7 @@ package bridge
 
 import (
 	"net"
+	"os"
 	"strconv"
 	"testing"
 
@@ -58,6 +59,9 @@ func TestAllocatePortDetection(t *testing.T) {
 
 	// Init driver
 	job := eng.Job("initdriver")
+	job.Stderr.Add(os.Stderr)
+	job.Stdout.Add(os.Stdout)
+	job.SetenvBool("EnableIPv6", true)
 	if res := InitDriver(job); res != engine.StatusOK {
 		t.Fatal("Failed to initialize network driver")
 	}
