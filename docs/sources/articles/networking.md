@@ -57,6 +57,9 @@ server when it starts up, and cannot be changed once it is running:
  *  `--fixed-cidr` — see
     [Customizing docker0](#docker0)
 
+ *  `--fixed-cidr-v6` — see
+    [IPv6](#ipv6)
+
  *  `-H SOCKET...` or `--host=SOCKET...` —
     This might sound like it would affect container networking,
     but it actually faces in the other direction:
@@ -69,6 +72,9 @@ server when it starts up, and cannot be changed once it is running:
 
  *  `--ip=IP_ADDRESS` — see
     [Binding container ports](#binding-ports)
+
+ *  `--ipv6=true|false` — see
+    [IPv6](#ipv6)
 
  *  `--ip-forward=true|false` — see
     [Communication between containers](#between-containers)
@@ -362,6 +368,54 @@ editing this setting.
 Again, this topic is covered without all of these low-level networking
 details in the [Docker User Guide](/userguide/dockerlinks/) document if you
 would like to use that as your port redirection reference instead.
+
+## IPv6
+
+<a name="ipv6"></a>
+
+By default the Docker server configures the container network for IPv4 only. You
+can enable IPv4/[IPv6](http://en.wikipedia.org/wiki/IPv6) dualstack support by
+running the Docker daemon with the `--ipv6` flag.
+Docker will set up the bridge `docker0` with the IPv6
+[link-local address](http://en.wikipedia.org/wiki/Link-local_address) `fe80::1`. You
+can configure Docker to assign global IPv6 addresses to containers by setting
+the `--fixed-cidr-v6` parameter:
+
+    docker -d --ipv6 --fixed-cidr-v6="2a00:1450::/64"
+
+To create a Docker container with a global IPv6 address execute the `docker run`
+command with the `--global-ipv6` flag:
+
+    docker run -it --global-ipv6 ubuntu bash -c "ifconfig eth0; route -A inet6"
+
+You will get an output like:
+
+    eth0      Link encap:Ethernet  HWaddr 02:42:ac:11:00:02
+              inet addr:172.17.0.2  Bcast:0.0.0.0  Mask:255.255.0.0
+              inet6 addr: 2a00:1450::1/64 Scope:Global
+              inet6 addr: fe80::42:acff:fe11:2/64 Scope:Link
+              UP BROADCAST  MTU:1500  Metric:1
+              RX packets:1 errors:0 dropped:0 overruns:0 frame:0
+              TX packets:1 errors:0 dropped:0 overruns:0 carrier:0
+              collisions:0 txqueuelen:0
+              RX bytes:110 (110.0 B)  TX bytes:110 (110.0 B)
+
+    Kernel IPv6 routing table
+    Destination                    Next Hop                   Flag Met Ref Use If
+    2a00:1450::/64                 ::                         U    256 0     0 eth0
+    fe80::/64                      ::                         U    256 0     0 eth0
+    ::/0                           fe80::1                    UG   1024 0     0 eth0
+    ::/0                           ::                         !n   -1  1     1 lo
+    ::1/128                        ::                         Un   0   1     0 lo
+    ff00::/8                       ::                         U    256 1     0 eth0
+    ::/0                           ::                         !n   -1  1     1 lo
+
+As you can see the Docker container will get a link-local address with the
+network prefix `/64` (here: `fe80::42:acff:fe11:2/64`) and a global IPv6 (here:
+ `2a00:1450::1/64`). The container will create connections to addresses outside
+of the `2a00:1450::/64` network via the link-local gateway `fe80::1` - the
+bridge that was created before by setting the `--ipv6` flag when executing the
+Docker daemon.
 
 ## Customizing docker0
 
