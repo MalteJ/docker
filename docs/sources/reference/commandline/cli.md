@@ -868,7 +868,7 @@ straightforward manner.
 
     $ sudo docker inspect --format='{{.NetworkSettings.IPAddress}}' $INSTANCE_ID
 
-**Get an instance's MAC Address:**
+**Get an instance's MAC address:**
 
 For the most part, you can pick out any field from the JSON in a fairly
 straightforward manner.
