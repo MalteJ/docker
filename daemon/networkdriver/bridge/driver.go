@@ -143,21 +143,23 @@ func InitDriver(job *engine.Job) engine.Status {
 				return job.Errorf("bridge ip (%s) does not match existing bridge configuration %s", networkv4.IP, bip)
 			}
 		}
-		if bridgeIPv6 != "" && enableIPv6 {
-			bip6, _, err := net.ParseCIDR(bridgeIPv6)
-			if err != nil {
-				return job.Error(err)
+	}
+
+	if enableIPv6 {
+		bip6, _, err := net.ParseCIDR(bridgeIPv6)
+		if err != nil {
+			return job.Error(err)
+		}
+		found := false
+		for _, addrv6 := range addrsv6 {
+			networkv6 = addrv6.(*net.IPNet)
+			if networkv6.IP.Equal(bip6) {
+				found = true
+				break
 			}
-			found := false
-			for _, addrv6 := range addrsv6 {
-				networkv6 = addrv6.(*net.IPNet)
-				if networkv6.IP.Equal(bip6) {
-					found = true
-				}
-			}
-			if !found {
-				return job.Errorf("bridge IPv6 does not match existing bridge configuration %s", bip6)
-			}
+		}
+		if !found {
+			return job.Errorf("bridge IPv6 does not match existing bridge configuration %s", bip6)
 		}
 	}
 
@@ -384,6 +386,12 @@ func configureBridge(bridgeIP string, bridgeIPv6 string, enableIPv6 bool) error 
 	}
 
 	if enableIPv6 {
+		// Enable IPv6 on the bridge
+		procFile := "/proc/sys/net/ipv6/conf/" + iface.Name + "/disable_ipv6"
+		if err := ioutil.WriteFile(procFile, []byte{'0', '\n'}, 0644); err != nil {
+			return fmt.Errorf("Unable to enable IPv6 addresses on bridge: %s\n", err)
+		}
+
 		ipAddr6, ipNet6, err := net.ParseCIDR(bridgeIPv6)
 		if err != nil {
 			log.Errorf("BridgeIPv6 parsing failed")
