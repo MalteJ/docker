@@ -131,6 +131,7 @@ Create a container
              },
              "WorkingDir":"",
              "NetworkDisabled": false,
+             "EnableGlobalIPv6": false,
              "MacAddress":"12:34:56:78:9a:bc",
              "ExposedPorts":{
                      "22/tcp": {}

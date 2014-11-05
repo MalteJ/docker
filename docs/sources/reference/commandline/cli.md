@@ -63,8 +63,9 @@ expect an integer, and they can only be specified once.
       --dns=[]                                   Force Docker to use specific DNS servers
       --dns-search=[]                            Force Docker to use specific DNS search domains
       -e, --exec-driver="native"                 Force the Docker runtime to use a specific exec driver
-      --fixed-cidr=""                            IPv4 subnet for fixed IPs (ex: 10.20.0.0/16)
+      --fixed-cidr=""                            IPv4 subnet for fixed IPs (e.g.: 10.20.0.0/16)
                                                    this subnet must be nested in the bridge subnet (which is defined by -b or --bip)
+      --fixed-cidr-v6=""                         IPv6 subnet for global IPs (e.g.: 2a00:1450::/64)
       -G, --group="docker"                       Group to assign the unix socket specified by -H when running in daemon mode
                                                    use '' (the empty string) to disable setting of a group
       -g, --graph="/var/lib/docker"              Path to use as the root of the Docker runtime
@@ -1222,6 +1223,7 @@ removed before the image is removed.
       --entrypoint=""            Overwrite the default ENTRYPOINT of the image
       --env-file=[]              Read in a line delimited file of environment variables
       --expose=[]                Expose a port or a range of ports (e.g. --expose=3300-3310) from the container without publishing it to your host
+      --global-ipv6=false        Assign a global IPv6 to the container and add a default route for IPv6 (see [IPv6](/articles/networking#ipv6)).
       -h, --hostname=""          Container host name
       -i, --interactive=false    Keep STDIN open even if not attached
       --link=[]                  Add link to another container in the form of name:alias

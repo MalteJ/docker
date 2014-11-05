@@ -21,6 +21,7 @@ docker-run - Run a command in a new container
 [**--entrypoint**[=*ENTRYPOINT*]]
 [**--env-file**[=*[]*]]
 [**--expose**[=*[]*]]
+[**--global-ipv6**[=*false*]]
 [**-h**|**--hostname**[=*HOSTNAME*]]
 [**-i**|**--interactive**[=*false*]]
 [**--security-opt**[=*[]*]]
@@ -135,6 +136,11 @@ ENTRYPOINT.
 
 **--expose**=[]
    Expose a port or a range of ports (e.g. --expose=3300-3310) from the container without publishing it to your host
+
+**--global-ipv6**=*true*|*false*
+   Assign a global IPv6 to the container and add a default route for IPv6. This
+   requires the daemon to be started with --ipv6 and a global IPv6 subnet
+   defined via daemon's --fixed-cidr-v6 parameter. The default is *false*.
 
 **-h**, **--hostname**=*hostname*
    Sets the container host name that is available inside the container.
