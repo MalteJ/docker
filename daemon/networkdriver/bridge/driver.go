@@ -130,6 +130,14 @@ func InitDriver(job *engine.Job) engine.Status {
 		if err != nil {
 			return job.Error(err)
 		}
+
+		if fixedCIDRv6 != "" {
+			// Setting route to global IPv6 subnet
+			log.Infof("Adding route to IPv6 network %q via device %q", fixedCIDRv6, bridgeIface)
+			if err := netlink.AddRoute(fixedCIDRv6, "", "", bridgeIface); err != nil {
+				log.Fatalf("Could not add route to IPv6 network %q via device %q", fixedCIDRv6, bridgeIface)
+			}
+		}
 	} else {
 		// Bridge exists already. Getting info...
 		// validate that the bridge ip matches the ip specified by BridgeIP
@@ -143,6 +151,8 @@ func InitDriver(job *engine.Job) engine.Status {
 				return job.Errorf("bridge ip (%s) does not match existing bridge configuration %s", networkv4.IP, bip)
 			}
 		}
+
+		// TODO: Check if route to fixedCIDRv6 is set
 	}
 
 	if enableIPv6 {
