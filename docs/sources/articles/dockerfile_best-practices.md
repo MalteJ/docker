@@ -113,12 +113,6 @@ the command string itself will be used to find a match.
 Once the cache is invalidated, all subsequent `Dockerfile` commands will
 generate new images and the cache will not be used.
 
-        bzr \
-        cvs \
-        git \
-        mercurial \
-        subversion
-
 ## The Dockerfile instructions
 
 Below you'll find recommendations for the best way to write the
@@ -287,7 +281,7 @@ things like:
 
 And instead, do something like:
 
-    RUN mdkir -p /usr/src/things \
+    RUN mkdir -p /usr/src/things \
         && curl -SL http://example.com/big.tar.gz \
         | tar -xJC /usr/src/things \
         && make -C /usr/src/things all

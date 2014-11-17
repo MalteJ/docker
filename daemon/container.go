@@ -102,13 +102,17 @@ func (container *Container) FromDisk() error {
 		return err
 	}
 
-	data, err := ioutil.ReadFile(pth)
+	jsonSource, err := os.Open(pth)
 	if err != nil {
 		return err
 	}
+	defer jsonSource.Close()
+
+	dec := json.NewDecoder(jsonSource)
+
 	// Load container settings
 	// udp broke compat of docker.PortMapping, but it's not used when loading a container, we can skip it
-	if err := json.Unmarshal(data, container); err != nil && !strings.Contains(err.Error(), "docker.PortMapping") {
+	if err := dec.Decode(container); err != nil && !strings.Contains(err.Error(), "docker.PortMapping") {
 		return err
 	}
 
@@ -234,6 +238,18 @@ func populateCommand(c *Container, env []string) error {
 		return fmt.Errorf("invalid network mode: %s", c.hostConfig.NetworkMode)
 	}
 
+	ipc := &execdriver.Ipc{}
+
+	if c.hostConfig.IpcMode.IsContainer() {
+		ic, err := c.getIpcContainer()
+		if err != nil {
+			return err
+		}
+		ipc.ContainerID = ic.ID
+	} else {
+		ipc.HostIpc = c.hostConfig.IpcMode.IsHost()
+	}
+
 	// Build lists of devices allowed and created within the container.
 	userSpecifiedDevices := make([]*devices.Device, len(c.hostConfig.Devices))
 	for i, deviceMapping := range c.hostConfig.Devices {
@@ -275,6 +291,7 @@ func populateCommand(c *Container, env []string) error {
 		InitPath:           "/.dockerinit",
 		WorkingDir:         c.Config.WorkingDir,
 		Network:            en,
+		Ipc:                ipc,
 		Resources:          resources,
 		AllowedDevices:     allowedDevices,
 		AutoCreatedDevices: autoCreatedDevices,
@@ -303,6 +320,10 @@ func (container *Container) Start() (err error) {
 	defer func() {
 		if err != nil {
 			container.setError(err)
+			// if no one else has set it, make sure we don't leave it at zero
+			if container.ExitCode == 0 {
+				container.ExitCode = 128
+			}
 			container.toDisk()
 			container.cleanup()
 		}
@@ -421,7 +442,7 @@ func (container *Container) buildHostsFiles(IP string) error {
 	}
 	container.HostsPath = hostsPath
 
-	extraContent := make(map[string]string)
+	var extraContent []etchosts.Record
 
 	children, err := container.daemon.Children(container.Name)
 	if err != nil {
@@ -430,15 +451,15 @@ func (container *Container) buildHostsFiles(IP string) error {
 
 	for linkAlias, child := range children {
 		_, alias := path.Split(linkAlias)
-		extraContent[alias] = child.NetworkSettings.IPAddress
+		extraContent = append(extraContent, etchosts.Record{Hosts: alias, IP: child.NetworkSettings.IPAddress})
 	}
 
 	for _, extraHost := range container.hostConfig.ExtraHosts {
 		parts := strings.Split(extraHost, ":")
-		extraContent[parts[0]] = parts[1]
+		extraContent = append(extraContent, etchosts.Record{Hosts: parts[0], IP: parts[1]})
 	}
 
-	return etchosts.Build(container.HostsPath, IP, container.Config.Hostname, container.Config.Domainname, &extraContent)
+	return etchosts.Build(container.HostsPath, IP, container.Config.Hostname, container.Config.Domainname, extraContent)
 }
 
 func (container *Container) buildHostnameAndHostsFiles(IP string) error {
@@ -992,7 +1013,7 @@ func (container *Container) updateParentsHosts() error {
 		c := container.daemon.Get(cid)
 		if c != nil && !container.daemon.config.DisableNetwork && container.hostConfig.NetworkMode.IsPrivate() {
 			if err := etchosts.Update(c.HostsPath, container.NetworkSettings.IPAddress, container.Name[1:]); err != nil {
-				return fmt.Errorf("Failed to update /etc/hosts in parent container: %v", err)
+				log.Errorf("Failed to update /etc/hosts in parent container: %v", err)
 			}
 		}
 	}
@@ -1255,10 +1276,25 @@ func (container *Container) GetMountLabel() string {
 	return container.MountLabel
 }
 
+func (container *Container) getIpcContainer() (*Container, error) {
+	containerID := container.hostConfig.IpcMode.Container()
+	c := container.daemon.Get(containerID)
+	if c == nil {
+		return nil, fmt.Errorf("no such container to join IPC: %s", containerID)
+	}
+	if !c.IsRunning() {
+		return nil, fmt.Errorf("cannot join IPC of a non running container: %s", containerID)
+	}
+	return c, nil
+}
+
 func (container *Container) getNetworkedContainer() (*Container, error) {
 	parts := strings.SplitN(string(container.hostConfig.NetworkMode), ":", 2)
 	switch parts[0] {
 	case "container":
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("no container specified to join network")
+		}
 		nc := container.daemon.Get(parts[1])
 		if nc == nil {
 			return nil, fmt.Errorf("no such container to join network: %s", parts[1])

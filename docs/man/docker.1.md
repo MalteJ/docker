@@ -70,6 +70,9 @@ unix://[/path/to/socket] to use.
 **--ipv6**=*true*|*false*
   Enable IPv6 support. Default is false. Docker will create an IPv6 enabled bridge with IP fe80::1 and allows to create IPv6 enabled containers.
 
+**-l**, **--log-level**="*debug*|*info*|*error*|*fatal*""
+  Set the logging level. Default is `info`.
+
 **--mtu**=VALUE
   Set the containers network mtu. Default is `1500`.
 

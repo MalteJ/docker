@@ -14,12 +14,12 @@ import (
 	gosignal "os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/dockerversion"
 	"github.com/docker/docker/engine"
+	"github.com/docker/docker/pkg/signal"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/docker/pkg/term"
 	"github.com/docker/docker/registry"
@@ -96,7 +96,12 @@ func (cli *DockerCli) call(method, path string, data interface{}, passAuthInfo b
 		if strings.Contains(err.Error(), "connection refused") {
 			return nil, -1, ErrConnectionRefused
 		}
-		return nil, -1, err
+
+		if cli.tlsConfig == nil {
+			return nil, -1, fmt.Errorf("%v. Are you trying to connect to a TLS-enabled daemon without TLS?", err)
+		}
+		return nil, -1, fmt.Errorf("An error occurred trying to connect: %v", err)
+
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
@@ -233,7 +238,7 @@ func (cli *DockerCli) monitorTtySize(id string, isExec bool) error {
 	cli.resizeTty(id, isExec)
 
 	sigchan := make(chan os.Signal, 1)
-	gosignal.Notify(sigchan, syscall.SIGWINCH)
+	gosignal.Notify(sigchan, signal.SIGWINCH)
 	go func() {
 		for _ = range sigchan {
 			cli.resizeTty(id, isExec)

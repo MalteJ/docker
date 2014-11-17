@@ -238,9 +238,9 @@ commands using a base image that does not contain `/bin/sh`.
 > **Note**:
 > Unlike the *shell* form, the *exec* form does not invoke a command shell.
 > This means that normal shell processing does not happen. For example,
-> `CMD [ "echo", "$HOME" ]` will not do variable substitution on `$HOME`.
+> `RUN [ "echo", "$HOME" ]` will not do variable substitution on `$HOME`.
 > If you want shell processing then either use the *shell* form or execute 
-> a shell directly, for example: `CMD [ "sh", "-c", "echo", "$HOME" ]`.
+> a shell directly, for example: `RUN [ "sh", "-c", "echo", "$HOME" ]`.
 
 The cache for `RUN` instructions isn't invalidated automatically during
 the next build. The cache for an instruction like 
@@ -355,9 +355,8 @@ change them using `docker run --env <key>=<value>`.
 
     ADD <src>... <dest>
 
-The `ADD` instruction copies new files,directories or remote file URLs to 
-the filesystem of the container  from `<src>` and add them to the at 
-path `<dest>`.  
+The `ADD` instruction copies new files, directories or remote file URLs from `<src>`
+and adds them to the filesystem of the container at the path `<dest>`.  
 
 Multiple `<src>` resource may be specified but if they are files or 
 directories then they must be relative to the source directory that is 
@@ -376,7 +375,11 @@ destination container.
 All new files and directories are created with a UID and GID of 0.
 
 In the case where `<src>` is a remote file URL, the destination will
-have permissions of 600.
+have permissions of 600. If the remote file being retrieved has an HTTP
+`Last-Modified` header, the timestamp from that header will be used
+to set the `mtime` on the destination file. Then, like any other file
+processed during an `ADD`, `mtime` will be included in the determination
+of whether or not the file has changed and the cache should be updated.
 
 > **Note**:
 > If you build by passing a `Dockerfile` through STDIN (`docker
@@ -448,13 +451,11 @@ The copy obeys the following rules:
 
     COPY <src>... <dest>
 
-The `COPY` instruction copies new files,directories or remote file URLs to 
-the filesystem of the container  from `<src>` and add them to the at 
-path `<dest>`. 
+The `COPY` instruction copies new files or directories from `<src>`
+and adds them to the filesystem of the container at the path `<dest>`.
 
-Multiple `<src>` resource may be specified but if they are files or 
-directories then they must be relative to the source directory that is being 
-built (the context of the build).
+Multiple `<src>` resource may be specified but they must be relative
+to the source directory that is being built (the context of the build).
 
 Each `<src>` may contain wildcards and matching will be done using Go's
 [filepath.Match](http://golang.org/pkg/path/filepath#Match) rules.

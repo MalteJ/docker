@@ -5,10 +5,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
-	"log" // see gh#8745, client needs to use go log pkg
 	"os"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/api"
 	"github.com/docker/docker/api/client"
 	"github.com/docker/docker/dockerversion"
@@ -36,11 +36,23 @@ func main() {
 		showVersion()
 		return
 	}
-	if *flDebug {
-		os.Setenv("DEBUG", "1")
+
+	if *flLogLevel != "" {
+		lvl, err := log.ParseLevel(*flLogLevel)
+		if err != nil {
+			log.Fatalf("Unable to parse logging level: %s", *flLogLevel)
+		}
+		initLogging(lvl)
+	} else {
+		initLogging(log.InfoLevel)
 	}
 
-	initLogging(*flDebug)
+	// -D, --debug, -l/--log-level=debug processing
+	// When/if -D is removed this block can be deleted
+	if *flDebug {
+		os.Setenv("DEBUG", "1")
+		initLogging(log.DebugLevel)
+	}
 
 	if len(flHosts) == 0 {
 		defaultHost := os.Getenv("DOCKER_HOST")
@@ -109,7 +121,7 @@ func main() {
 	if err := cli.Cmd(flag.Args()...); err != nil {
 		if sterr, ok := err.(*utils.StatusError); ok {
 			if sterr.Status != "" {
-				log.Println("%s", sterr.Status)
+				log.Println(sterr.Status)
 			}
 			os.Exit(sterr.StatusCode)
 		}

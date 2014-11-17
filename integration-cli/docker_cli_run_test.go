@@ -1804,7 +1804,7 @@ func TestRunWithBadDevice(t *testing.T) {
 	if err == nil {
 		t.Fatal("Run should fail with bad device")
 	}
-	expected := `"/etc": not a device node`
+	expected := `\"/etc\": not a device node`
 	if !strings.Contains(out, expected) {
 		t.Fatalf("Output should contain %q, actual out: %q", expected, out)
 	}
@@ -2537,4 +2537,104 @@ func TestRunAllowPortRangeThroughExpose(t *testing.T) {
 		t.Fatal(err)
 	}
 	logDone("run - allow port range through --expose flag")
+}
+
+func TestRunUnknownCommand(t *testing.T) {
+	defer deleteAllContainers()
+	runCmd := exec.Command(dockerBinary, "create", "busybox", "/bin/nada")
+	cID, _, _, err := runCommandWithStdoutStderr(runCmd)
+	if err != nil {
+		t.Fatalf("Failed to create container: %v, output: %q", err, cID)
+	}
+	cID = strings.TrimSpace(cID)
+
+	runCmd = exec.Command(dockerBinary, "start", cID)
+	_, _, _, err = runCommandWithStdoutStderr(runCmd)
+	if err == nil {
+		t.Fatalf("Container should not have been able to start!")
+	}
+
+	runCmd = exec.Command(dockerBinary, "inspect", "--format={{.State.ExitCode}}", cID)
+	rc, _, _, err2 := runCommandWithStdoutStderr(runCmd)
+	rc = strings.TrimSpace(rc)
+
+	if err2 != nil {
+		t.Fatalf("Error getting status of container: %v", err2)
+	}
+
+	if rc != "-1" {
+		t.Fatalf("ExitCode(%v) was supposed to be -1", rc)
+	}
+
+	logDone("run - Unknown Command")
+}
+
+func TestRunModeIpcHost(t *testing.T) {
+	hostIpc, err := os.Readlink("/proc/1/ns/ipc")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := exec.Command(dockerBinary, "run", "--ipc=host", "busybox", "readlink", "/proc/self/ns/ipc")
+	out2, _, err := runCommandWithOutput(cmd)
+	if err != nil {
+		t.Fatal(err, out2)
+	}
+
+	out2 = strings.Trim(out2, "\n")
+	if hostIpc != out2 {
+		t.Fatalf("IPC different with --ipc=host %s != %s\n", hostIpc, out2)
+	}
+
+	cmd = exec.Command(dockerBinary, "run", "busybox", "readlink", "/proc/self/ns/ipc")
+	out2, _, err = runCommandWithOutput(cmd)
+	if err != nil {
+		t.Fatal(err, out2)
+	}
+
+	out2 = strings.Trim(out2, "\n")
+	if hostIpc == out2 {
+		t.Fatalf("IPC should be different without --ipc=host %s != %s\n", hostIpc, out2)
+	}
+	deleteAllContainers()
+
+	logDone("run - hostname and several network modes")
+}
+
+func TestRunModeIpcContainer(t *testing.T) {
+	cmd := exec.Command(dockerBinary, "run", "-d", "busybox", "top")
+	out, _, err := runCommandWithOutput(cmd)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	id := strings.TrimSpace(out)
+	state, err := inspectField(id, "State.Running")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state != "true" {
+		t.Fatal("Container state is 'not running'")
+	}
+	pid1, err := inspectField(id, "State.Pid")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	parentContainerIpc, err := os.Readlink(fmt.Sprintf("/proc/%s/ns/ipc", pid1))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd = exec.Command(dockerBinary, "run", fmt.Sprintf("--ipc=container:%s", id), "busybox", "readlink", "/proc/self/ns/ipc")
+	out2, _, err := runCommandWithOutput(cmd)
+	if err != nil {
+		t.Fatal(err, out2)
+	}
+
+	out2 = strings.Trim(out2, "\n")
+	if parentContainerIpc != out2 {
+		t.Fatalf("IPC different with --ipc=container:%s %s != %s\n", id, parentContainerIpc, out2)
+	}
+	deleteAllContainers()
+
+	logDone("run - hostname and several network modes")
 }

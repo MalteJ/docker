@@ -231,7 +231,7 @@ func (daemon *Daemon) register(container *Container, updateSuffixarray bool) err
 		log.Debugf("killing old running container %s", container.ID)
 
 		existingPid := container.Pid
-		container.SetStopped(0)
+		container.SetStopped(&execdriver.ExitStatus{0, false})
 
 		// We only have to handle this for lxc because the other drivers will ensure that
 		// no processes are left when docker dies
@@ -263,7 +263,7 @@ func (daemon *Daemon) register(container *Container, updateSuffixarray bool) err
 
 			log.Debugf("Marking as stopped")
 
-			container.SetStopped(-127)
+			container.SetStopped(&execdriver.ExitStatus{-127, false})
 			if err := container.ToDisk(); err != nil {
 				return err
 			}
@@ -719,10 +719,8 @@ func NewDaemon(config *Config, eng *engine.Engine) (*Daemon, error) {
 }
 
 func NewDaemonFromDirectory(config *Config, eng *engine.Engine) (*Daemon, error) {
-	// Apply configuration defaults
 	if config.Mtu == 0 {
-		// FIXME: GetDefaultNetwork Mtu doesn't need to be public anymore
-		config.Mtu = GetDefaultNetworkMtu()
+		config.Mtu = getDefaultNetworkMtu()
 	}
 	// Check for mutually incompatible config options
 	if config.BridgeIface != "" && config.BridgeIP != "" {
@@ -994,7 +992,7 @@ func (daemon *Daemon) Diff(container *Container) (archive.Archive, error) {
 	return daemon.driver.Diff(container.ID, initID)
 }
 
-func (daemon *Daemon) Run(c *Container, pipes *execdriver.Pipes, startCallback execdriver.StartCallback) (int, error) {
+func (daemon *Daemon) Run(c *Container, pipes *execdriver.Pipes, startCallback execdriver.StartCallback) (execdriver.ExitStatus, error) {
 	return daemon.execDriver.Run(c.command, pipes, startCallback)
 }
 

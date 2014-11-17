@@ -113,9 +113,7 @@ func (s *TagStore) CmdPull(job *engine.Job) engine.Status {
 		return job.Error(err)
 	}
 
-	secure := registry.IsSecure(hostname, s.insecureRegistries)
-
-	endpoint, err := registry.NewEndpoint(hostname, secure)
+	endpoint, err := registry.NewEndpoint(hostname, s.insecureRegistries)
 	if err != nil {
 		return job.Error(err)
 	}
@@ -139,6 +137,11 @@ func (s *TagStore) CmdPull(job *engine.Job) engine.Status {
 		mirrors = s.mirrors
 	}
 
+	logName := localName
+	if tag != "" {
+		logName += ":" + tag
+	}
+
 	if len(mirrors) == 0 && (isOfficial || endpoint.Version == registry.APIVersion2) {
 		j := job.Eng.Job("trust_update_base")
 		if err = j.Run(); err != nil {
@@ -146,6 +149,9 @@ func (s *TagStore) CmdPull(job *engine.Job) engine.Status {
 		}
 
 		if err := s.pullV2Repository(job.Eng, r, job.Stdout, localName, remoteName, tag, sf, job.GetenvBool("parallel")); err == nil {
+			if err = job.Eng.Job("log", "pull", logName, "").Run(); err != nil {
+				log.Errorf("Error logging event 'pull' for %s: %s", logName, err)
+			}
 			return engine.StatusOK
 		} else if err != registry.ErrDoesNotExist {
 			log.Errorf("Error from V2 registry: %s", err)
@@ -154,6 +160,10 @@ func (s *TagStore) CmdPull(job *engine.Job) engine.Status {
 
 	if err = s.pullRepository(r, job.Stdout, localName, remoteName, tag, sf, job.GetenvBool("parallel"), mirrors); err != nil {
 		return job.Error(err)
+	}
+
+	if err = job.Eng.Job("log", "pull", logName, "").Run(); err != nil {
+		log.Errorf("Error logging event 'pull' for %s: %s", logName, err)
 	}
 
 	return engine.StatusOK
@@ -165,7 +175,7 @@ func (s *TagStore) pullRepository(r *registry.Session, out io.Writer, localName,
 	repoData, err := r.GetRepositoryData(remoteName)
 	if err != nil {
 		if strings.Contains(err.Error(), "HTTP code: 404") {
-			return fmt.Errorf("Error: image %s not found", remoteName)
+			return fmt.Errorf("Error: image %s:%s not found", remoteName, askedTag)
 		}
 		// Unexpected HTTP error
 		return err
