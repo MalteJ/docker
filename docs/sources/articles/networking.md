@@ -388,7 +388,7 @@ command with the `--global-ipv6` flag:
 
     docker run -it --global-ipv6 ubuntu bash -c "ifconfig eth0; route -A inet6"
 
-You will get an output like:
+You will get output like:
 
     eth0      Link encap:Ethernet  HWaddr 02:42:ac:11:00:02
               inet addr:172.17.0.2  Bcast:0.0.0.0  Mask:255.255.0.0
@@ -413,9 +413,9 @@ You will get an output like:
 As you can see the Docker container will get a link-local address with the
 network prefix `/64` (here: `fe80::42:acff:fe11:2/64`) and a global IPv6 (here:
  `2a00:1450::1/64`). The container will create connections to addresses outside
-of the `2a00:1450::/64` network via the link-local gateway `fe80::1` - the
-bridge that was created before by setting the `--ipv6` flag when executing the
-Docker daemon.
+of the `2a00:1450::/64` network via the link-local gateway `fe80::1`. The
+bridge was created by setting the `--ipv6` flag when executing the Docker
+daemon.
 
 ## Customizing docker0
 

@@ -68,7 +68,7 @@ unix://[/path/to/socket] to use.
   Disable Docker's addition of iptables rules. Default is true.
 
 **--ipv6**=*true*|*false*
-  Enable IPv6 support. Default is false. Docker will create an IPv6 enabled bridge with IP fe80::1 and allows to create IPv6 enabled containers.
+  Enable IPv6 support. Default is false. Docker will create an IPv6 enabled bridge with address fe80::1 which allows you to create IPv6 enabled containers.
 
 **-l**, **--log-level**="*debug*|*info*|*error*|*fatal*""
   Set the logging level. Default is `info`.

@@ -399,7 +399,7 @@ func configureBridge(bridgeIP string, bridgeIPv6 string, enableIPv6 bool) error 
 		// Enable IPv6 on the bridge
 		procFile := "/proc/sys/net/ipv6/conf/" + iface.Name + "/disable_ipv6"
 		if err := ioutil.WriteFile(procFile, []byte{'0', '\n'}, 0644); err != nil {
-			return fmt.Errorf("Unable to enable IPv6 addresses on bridge: %s\n", err)
+			return fmt.Errorf("unable to enable IPv6 addresses on bridge: %s\n", err)
 		}
 
 		ipAddr6, ipNet6, err := net.ParseCIDR(bridgeIPv6)

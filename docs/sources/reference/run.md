@@ -150,7 +150,7 @@ of the containers.
 
 ## Network settings
 
-    --dns=[]            : Set custom dns servers for the container
+    --dns=[]            : Set custom DNS servers for the container
     --net="bridge"      : Set the Network mode for the container
                                     'bridge': creates a new network stack for the container on the docker bridge
                                     'none': no networking for this container
@@ -173,7 +173,7 @@ By default a random MAC is generated. You can set the container's MAC address
 explicitly by providing a MAC via the `--mac-address` parameter (format:
 `12:34:56:78:9a:bc`).
 
-Global IPv6 networking is disabled by default. To assign a global IPv6 to the
+Global IPv6 networking is disabled by default. To assign a global IPv6 address to the
 container and add a default route for IPv6 set the `--global-ipv6` flag. This
 requires the daemon to be started with `--ipv6` and a global IPv6 subnet
 defined via daemon's `--fixed-cidr-v6` parameter. You can find further information
