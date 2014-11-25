@@ -136,13 +136,13 @@ example, `docker run ubuntu:14.04`.
     --ipc=""  : Set the IPC mode for the container,
                                  'container:<name|id>': reuses another container's IPC namespace
                                  'host': use the host's IPC namespace inside the container
-By default, all containers have the IPC namespace enabled 
+By default, all containers have the IPC namespace enabled
 
 IPC (POSIX/SysV IPC) namespace provides separation of named shared memory segments, semaphores and message queues.  
 
 Shared memory segments are used to accelerate inter-process communication at
 memory speed, rather than through pipes or through the network stack. Shared
-memory is commonly used by databases and custom-built (typically C/OpenMPI, 
+memory is commonly used by databases and custom-built (typically C/OpenMPI,
 C++/using boost libraries) high performance applications for scientific
 computing and financial services industries. If these types of applications
 are broken into multiple containers, you might need to share the IPC mechanisms
@@ -151,8 +151,8 @@ of the containers.
 ## Network settings
 
     --dns=[]            : Set custom DNS servers for the container
-    --net="bridge"      : Set the Network mode for the container
-                                    'bridge': creates a new network stack for the container on the docker bridge
+    --net="bridge"      : Set the network mode for the container
+                                    'bridge': creates a new network stack for the container on the Docker bridge
                                     'none': no networking for this container
                                     'container:<name|id>': reuses another container network stack
                                     'host': use the host network stack inside the container
@@ -260,7 +260,7 @@ the container exits**, you can add the `--rm` flag:
     --security-opt="label:type:TYPE"   : Set the label type for the container
     --security-opt="label:level:LEVEL" : Set the label level for the container
     --security-opt="label:disable"     : Turn off label confinement for the container
-    --secutity-opt="apparmor:PROFILE"  : Set the apparmor profile to be applied
+    --secutity-opt="apparmor:PROFILE"  : Set the AppArmor profile to be applied
                                          to the container
 
 You can override the default labeling scheme for each container by specifying

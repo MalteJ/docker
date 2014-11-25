@@ -50,10 +50,10 @@ unix://[/path/to/socket] to use.
   Path to use as the root of the Docker runtime. Default is `/var/lib/docker`.
 
 **--fixed-cidr**=""
-  IPv4 subnet for fixed IPs (e.g.: 10.20.0.0/16); this subnet must be nested in the bridge subnet (which is defined by \-b or \-\-bip)
+  IPv4 subnet for fixed IPs (e.g., 10.20.0.0/16); this subnet must be nested in the bridge subnet (which is defined by \-b or \-\-bip)
 
 **--fixed-cidr-v6**=""
-  IPv6 subnet for global IPv6 addresses (e.g.: 2a00:1450::/64)
+  IPv6 subnet for global IPv6 addresses (e.g., 2a00:1450::/64)
 
 **--icc**=*true*|*false*
   Enable inter\-container communication. Default is true.
@@ -68,7 +68,7 @@ unix://[/path/to/socket] to use.
   Disable Docker's addition of iptables rules. Default is true.
 
 **--ipv6**=*true*|*false*
-  Enable IPv6 support. Default is false. Docker will create an IPv6 enabled bridge with address fe80::1 which allows you to create IPv6 enabled containers.
+  Enable IPv6 support. Default is false. Docker will create an IPv6-enabled bridge with address fe80::1 which will allow you to create IPv6-enabled containers.
 
 **-l**, **--log-level**="*debug*|*info*|*error*|*fatal*""
   Set the logging level. Default is `info`.

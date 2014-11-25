@@ -373,18 +373,19 @@ would like to use that as your port redirection reference instead.
 
 <a name="ipv6"></a>
 
-By default the Docker server configures the container network for IPv4 only. You
-can enable IPv4/[IPv6](http://en.wikipedia.org/wiki/IPv6) dualstack support by
-running the Docker daemon with the `--ipv6` flag.
-Docker will set up the bridge `docker0` with the IPv6
-[link-local address](http://en.wikipedia.org/wiki/Link-local_address) `fe80::1`. You
-can configure Docker to assign global IPv6 addresses to containers by setting
-the `--fixed-cidr-v6` parameter:
+By default, the Docker server configures the container network for IPv4 only.
+You can enable IPv4/[IPv6](http://en.wikipedia.org/wiki/IPv6) dualstack support
+by running the Docker daemon with the `--ipv6` flag. Docker will set up the
+bridge `docker0` with the IPv6
+[link-local address](http://en.wikipedia.org/wiki/Link-local_address) `fe80::1`.
+By default, containers that are created will only get a link-local IPv6 address.
+Additionally you can define an IPv6 subnet to pick globally routable IPv6
+addresses by setting the `--fixed-cidr-v6` parameter:
 
     docker -d --ipv6 --fixed-cidr-v6="2a00:1450::/64"
 
-To create a Docker container with a global IPv6 address execute the `docker run`
-command with the `--global-ipv6` flag:
+By default the container only gets a link-local address. To assign a globally
+routable IPv6 address from the defined subnet to a container you have to set the `--global-ipv6` flag:
 
     docker run -it --global-ipv6 ubuntu bash -c "ifconfig eth0; route -A inet6"
 
@@ -410,12 +411,11 @@ You will get output like:
     ff00::/8                       ::                         U    256 1     0 eth0
     ::/0                           ::                         !n   -1  1     1 lo
 
-As you can see the Docker container will get a link-local address with the
-network prefix `/64` (here: `fe80::42:acff:fe11:2/64`) and a global IPv6 (here:
- `2a00:1450::1/64`). The container will create connections to addresses outside
-of the `2a00:1450::/64` network via the link-local gateway `fe80::1`. The
-bridge was created by setting the `--ipv6` flag when executing the Docker
-daemon.
+As you can see the Docker container is assigned a link-local address with the
+network prefix `/64` (here: `fe80::42:acff:fe11:2/64`) and a globally routable
+IPv6 address (here: `2a00:1450::1/64`). The container will create connections to
+addresses outside of the `2a00:1450::/64` network via the link-local gateway at
+`fe80::1`.
 
 ## Customizing docker0
 

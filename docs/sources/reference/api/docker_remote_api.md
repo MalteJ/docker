@@ -56,7 +56,7 @@ total memory available (`MemTotal`).
 
 **New!**
 - You can set the new container's MAC address explicitly.
-- Enable global IPv6 networking.
+- You can enable global IPv6 networking.
 
 `POST /containers/(id)/start`
 
