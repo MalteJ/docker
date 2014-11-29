@@ -105,7 +105,7 @@ func (d *driver) createNetwork(container *libcontainer.Config, c *execdriver.Com
 			Bridge:     c.Network.Interface.Bridge,
 			VethPrefix: "veth",
 		}
-		if c.Network.Interface.EnableGlobalIPv6 {
+		if c.Network.Interface.GlobalIPv6Address != "" {
 			vethNetwork.IPv6Address = fmt.Sprintf("%s/%d", c.Network.Interface.GlobalIPv6Address, c.Network.Interface.GlobalIPv6PrefixLen)
 			vethNetwork.IPv6Gateway = c.Network.Interface.IPv6Gateway
 		}

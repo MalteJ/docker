@@ -158,7 +158,6 @@ of the containers.
                                     'host': use the host network stack inside the container
     --add-host=""       : Add a line to /etc/hosts (host:IP)
     --mac-address=""    : Sets the container's Ethernet device's MAC address
-    --global-ipv6=false : Assign a global IPv6 to the container and add a default route for IPv6
 
 By default, all containers have networking enabled and they can make any
 outgoing connections. The operator can completely disable networking
@@ -172,12 +171,6 @@ you can override this with `--dns`.
 By default a random MAC is generated. You can set the container's MAC address
 explicitly by providing a MAC via the `--mac-address` parameter (format:
 `12:34:56:78:9a:bc`).
-
-Global IPv6 networking is disabled by default. To assign a global IPv6 address to the
-container and add a default route for IPv6 set the `--global-ipv6` flag. This
-requires the daemon to be started with `--ipv6` and a global IPv6 subnet
-defined via daemon's `--fixed-cidr-v6` parameter. You can find further information
-about Docker's IPv6 support in the [Advanced Networking article](/articles/networking#ipv6).
 
 Supported networking modes are:
 

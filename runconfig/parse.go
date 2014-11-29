@@ -44,7 +44,6 @@ func Parse(cmd *flag.FlagSet, args []string) (*Config, *HostConfig, *flag.FlagSe
 		flCapDrop     = opts.NewListOpts(nil)
 		flSecurityOpt = opts.NewListOpts(nil)
 
-		flEnableGlobalIPv6 = cmd.Bool([]string{"-global-ipv6"}, false, "Add global IPv6 address to this container")
 		flNetwork          = cmd.Bool([]string{"#n", "#-networking"}, true, "Enable networking for this container")
 		flPrivileged       = cmd.Bool([]string{"#privileged", "-privileged"}, false, "Give extended privileges to this container")
 		flPublishAll       = cmd.Bool([]string{"P", "-publish-all"}, false, "Publish all exposed ports to the host interfaces")
@@ -272,7 +271,6 @@ func Parse(cmd *flag.FlagSet, args []string) (*Config, *HostConfig, *flag.FlagSe
 		Image:            image,
 		Volumes:          flVolumes.GetMap(),
 		MacAddress:       *flMacAddress,
-		EnableGlobalIPv6: *flEnableGlobalIPv6,
 		Entrypoint:       entrypoint,
 		WorkingDir:       *flWorkingDir,
 	}

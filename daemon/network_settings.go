@@ -14,7 +14,6 @@ type NetworkSettings struct {
 	MacAddress             string
 	LinkLocalIPv6Address   string
 	LinkLocalIPv6PrefixLen int
-	EnableGlobalIPv6       bool
 	GlobalIPv6Address      string
 	GlobalIPv6PrefixLen    int
 	Gateway                string

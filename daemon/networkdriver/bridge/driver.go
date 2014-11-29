@@ -474,7 +474,6 @@ func Allocate(job *engine.Job) engine.Status {
 		id               = job.Args[0]
 		requestedIP      = net.ParseIP(job.Getenv("RequestedIP"))
 		requestedIPv6    = net.ParseIP(job.Getenv("RequestedIPv6"))
-		enableGlobalIPv6 = job.GetenvBool("EnableGlobalIPv6")
 		globalIPv6       net.IP
 	)
 
@@ -492,19 +491,22 @@ func Allocate(job *engine.Job) engine.Status {
 		mac = generateMacAddr(ip)
 	}
 
-	if enableGlobalIPv6 {
-		log.Infof("Allocate: IPv6 enabled")
-		if globalIPv6Network == nil {
-			log.Errorf("ERROR: Allocate: globalIPv6Network = nil!\n")
+	if globalIPv6Network != nil {
+		// if globalIPv6Network Size is at least a /80 subnet generate IPv6 address from MAC address
+		netmask_ones, _ := globalIPv6Network.Mask.Size()
+		if requestedIPv6 == nil && netmask_ones <= 80 {
+			requestedIPv6 = globalIPv6Network.IP
+			for i, h := range mac {
+				requestedIPv6[i+10] = h
+			}
 		}
+
 		globalIPv6, err = ipallocator.RequestIP(globalIPv6Network, requestedIPv6)
 		if err != nil {
 			log.Errorf("Allocator: RequestIP v6: %s", err.Error())
 			return job.Error(err)
 		}
 		log.Infof("Allocated IPv6 %s", globalIPv6)
-	} else {
-		log.Infof("Allocate: IPv6 disabled")
 	}
 
 	out := engine.Env{}
@@ -526,8 +528,7 @@ func Allocate(job *engine.Job) engine.Status {
 	out.Set("LinkLocalIPv6", localIPv6.String())
 	out.Set("MacAddress", mac.String())
 
-	if enableGlobalIPv6 {
-		out.SetBool("EnableGlobalIPv6", true)
+	if globalIPv6Network != nil {
 		out.Set("GlobalIPv6", globalIPv6.String())
 		sizev6, _ := globalIPv6Network.Mask.Size()
 		out.SetInt("GlobalIPv6PrefixLen", sizev6)
@@ -546,8 +547,6 @@ func Allocate(job *engine.Job) engine.Status {
 
 // release an interface for a select ip
 func Release(job *engine.Job) engine.Status {
-	enableGlobalIPv6 := job.GetenvBool("EnableGlobalIPv6")
-
 	var (
 		id                 = job.Args[0]
 		containerInterface = currentInterfaces.Get(id)
@@ -566,7 +565,7 @@ func Release(job *engine.Job) engine.Status {
 	if err := ipallocator.ReleaseIP(bridgeIPv4Network, containerInterface.IP); err != nil {
 		log.Infof("Unable to release IPv4 %s", err)
 	}
-	if enableGlobalIPv6 {
+	if globalIPv6Network != nil {
 		if err := ipallocator.ReleaseIP(globalIPv6Network, containerInterface.IPv6); err != nil {
 			log.Infof("Unable to release IPv6 %s", err)
 		}
