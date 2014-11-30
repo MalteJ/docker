@@ -570,7 +570,9 @@ always have to update the hosts' routing tables once you add or remove a host
 to the cluster.
 
 Every configuration in the diagram that is visualized below the cyan colored
-dashed line is handled by Docker. The configuration above the line is up to the
+dashed line is handled by Docker: The `docker0` bridge IP address configuration,
+the route to the Docker subnet on the host, the container IP addresses and the
+routes on the containers. The configuration above the line is up to the
 user and can be adapted to the individual environment.
 
 ##### Routed Network Environment
@@ -596,14 +598,16 @@ for Docker. When adding a third host you would add a route for the subnet
 `2001:db8:3::/48` in the router and configure Docker on Host3 with
 `--fixed-cidr-v6=2001:db8:3:1::/64`.
 
-Remember he subnet for Docker containers should at least have a size of `/80`.
+Remember the subnet for Docker containers should at least have a size of `/80`.
 This way an IPv6 address can end with the container's MAC address and you
 prevent ARP cache invalidation issues in the Docker layer. So if you have a
 `/64` for your whole environment use `/68` subnets for the hosts and `/80` for
 the containers. This way you can use 4096 hosts with 16 `/80` subnets each.
 
 Every configuration in the diagram that is visualized below the cyan colored
-dashed line is handled by Docker. The configuration above the line is up to the
+dashed line is handled by Docker: The `docker0` bridge IP address configuration,
+the route to the Docker subnet on the host, the container IP addresses and the
+routes on the containers. The configuration above the line is up to the
 user and can be adapted to the individual environment.
 
 ## Customizing docker0
