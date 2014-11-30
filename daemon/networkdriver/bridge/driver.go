@@ -468,13 +468,13 @@ func linkLocalIPv6FromMac(mac string) (string, error) {
 // Allocate a network interface
 func Allocate(job *engine.Job) engine.Status {
 	var (
-		ip               net.IP
-		mac              net.HardwareAddr
-		err              error
-		id               = job.Args[0]
-		requestedIP      = net.ParseIP(job.Getenv("RequestedIP"))
-		requestedIPv6    = net.ParseIP(job.Getenv("RequestedIPv6"))
-		globalIPv6       net.IP
+		ip            net.IP
+		mac           net.HardwareAddr
+		err           error
+		id            = job.Args[0]
+		requestedIP   = net.ParseIP(job.Getenv("RequestedIP"))
+		requestedIPv6 = net.ParseIP(job.Getenv("RequestedIPv6"))
+		globalIPv6    net.IP
 	)
 
 	if requestedIP != nil {
