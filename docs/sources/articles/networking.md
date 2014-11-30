@@ -437,7 +437,7 @@ global space. Before you use it and for more information have a look at
 [RFC 4193](http://tools.ietf.org/html/rfc4193).
 
 #### NAT
-You should not use NAT in IPv6. It is be possible but be strongly discouraged to
+You should not use NAT in IPv6. It is possible but be strongly discouraged to
 do so. You have plenty of IPv6 addresses, so use them. How to protect your local
 network from the outside world? Put a firewall in between!
 
@@ -569,11 +569,11 @@ In a switched environment every host has to know all routes to every subnet. You
 always have to update the hosts' routing tables once you add or remove a host
 to the cluster.
 
-Every configuration in the diagram that is visualized below the cyan colored
-dashed line is handled by Docker: The `docker0` bridge IP address configuration,
-the route to the Docker subnet on the host, the container IP addresses and the
-routes on the containers. The configuration above the line is up to the
-user and can be adapted to the individual environment.
+Every configuration in the diagram that is visualized below the dashed line is
+handled by Docker: The `docker0` bridge IP address configuration, the route to
+the Docker subnet on the host, the container IP addresses and the routes on the
+containers. The configuration above the line is up to the user and can be
+adapted to the individual environment.
 
 ##### Routed Network Environment
 
@@ -604,11 +604,11 @@ prevent ARP cache invalidation issues in the Docker layer. So if you have a
 `/64` for your whole environment use `/68` subnets for the hosts and `/80` for
 the containers. This way you can use 4096 hosts with 16 `/80` subnets each.
 
-Every configuration in the diagram that is visualized below the cyan colored
-dashed line is handled by Docker: The `docker0` bridge IP address configuration,
-the route to the Docker subnet on the host, the container IP addresses and the
-routes on the containers. The configuration above the line is up to the
-user and can be adapted to the individual environment.
+Every configuration in the diagram that is visualized below the dashed line is
+handled by Docker: The `docker0` bridge IP address configuration, the route to
+the Docker subnet on the host, the container IP addresses and the routes on the
+containers. The configuration above the line is up to the user and can be
+adapted to the individual environment.
 
 ## Customizing docker0
 
