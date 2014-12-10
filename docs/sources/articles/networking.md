@@ -373,92 +373,10 @@ would like to use that as your port redirection reference instead.
 
 <a name="ipv6"></a>
 
-### Basics
 As we are [running out of IPv4 addresses](http://en.wikipedia.org/wiki/IPv4_address_exhaustion)
-the IETF has standardized an IPv4 successor, Internet Protocol Version 6, in
-[RFC 2460](https://www.ietf.org/rfc/rfc2460.txt). Both protocols, IPv4 and IPv6,
-reside on layer 3 of the [OSI model](http://en.wikipedia.org/wiki/OSI_model).
-
-#### Addresses and Subnets
-Apparently the most significant change is the IP address length. Where in IPv4
-the addresses have a length of 4 bytes (32 bit), e.g. `203.0.113.42`,
-IPv6 addresses have a length of 16 bytes (128 bits), e.g.
-`2001:0db8:0000:0000:0000:0000:0030:9a43`. Hence the theoretical number of IP
-addresses has raised from 4,294,967,296 (4.29e+9) to 3.40e+38. Due to
-conventions, restrictions and reserved blocks the number of usable IPv4
-addresses is significantly lower and most of them are already registered.
-
-As you can see from the example, IPv6 addresses are written in hexadecimal
-notation in a group of two bytes separeted by a colon. As an IPv6 address is
-very long you may ommit leading zeros from any group of hexadecimal digits.
-Further you may ommit consecutive sections of zeros. This way the above IPv6
-address can be written as `2001:db8::30:9a43`.
-
-As in IPv4 you have subnets in IPv6. The notation is similar. The smallest
-subnet is a `/128` subnet. It contains one IPv6 address. The mostly used subnet
-size is `/64`. The subnet `2001:db8::/64` has a range from `2001:db8::0:0:0:0`
-to `2001:db8::ffff:ffff:ffff:ffff`. Unlike as in IPv4 subnets the highest
-address in an IPv6 subnet is not a broadcast address. The lowest as well as the
-highest address may be used as a standard IPv6 address. In a switched network,
-devices of the same subnet can reach each other directly via their hardware
-addresses. For communication across different subnets you need layer 3 routing.
-
-#### Loopback Address
-The IPv6 loopback address is `::1`.
-
-#### Link Local Addresses
-The subnet `fe80::/10` is a link local subnet. That means it will not get
-routed. Every network device usually has a link local address that is generated
-from its MAC address. As your default gateway often you use your router's link
-local address and not its global address. The address `fe80::1` is often used as
-gateway address. So if you are not sure what your IPv6 gateway address is, try
-this one first.
-
-If you have multiple IPv6 enabled network adapters attached to different
-networks you have access to multiple `fe80::/10` networks. You have to define
-the network device you want to use in your request. Some applications allow to
-define the device via a command line flag, e.g. `ping6 -I eth0 fe80::1`. Another
-option is to add the device as a suffix to the target address: `fe80::1%eth0`.
-
-#### Global Unicast Addresses
-All addresses except `::/128`, `::1/128`, `fe80::/10`, `fec0::/10`, `fc00::/7`,
-`ff00::/8` are globally routable unicast addresses. In fact currently only
-`2000::/3` (`2000...` to `3fff...`) addresses are used for end-to-end IPv6
-global unicast communication.
-
-The subnet `2001:db8::/32` is reserved for documentation and experimental use.
-Feel free to setup a network within this subnet if you do not have got an own
-subnet.
-
-#### Unique Local Unicast Addresses
-For private addresses the subnet `fc00::/7` (`fc00...` to `fdff...`) is used.
-It is routable within your private network but should not be routed into the
-global space. Before you use it and for more information have a look at
-[RFC 4193](http://tools.ietf.org/html/rfc4193).
-
-#### NAT
-You should not use NAT in IPv6. It is possible but be strongly discouraged to
-do so. You have plenty of IPv6 addresses, so use them. How to protect your local
-network from the outside world? Put a firewall in between!
-
-#### IPv6 Addresses in DNS
-Instead of using an A-record like for IPv4 you use a AAAA-record (Quad-A record)
-for name resolution:
-
-    example.com.   175	IN  AAAA  2001:db8::1
-    example.com.   175	IN  A     203.0.113.1
-
-An IPv6 address reverse lookup works similar to an IPv4 address reverse lookup.
-Instead of using the domain `in-addr.arpa` IPv6 lookups use `ip6.arpa`. Further
-the address is in hexadecimal format and every subdomain has a length of one
-character (4 bits of the address):
-
-    1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa. IN PTR example.com.
-
-You may add A and AAAA-records to a hostname at the same time. IPv4 clients will
-query the A-record and IPv6 clients the AAAA-record. If your client supports
-IPv4 and IPv6 it is up to the client which to use. Most modern operating systems
-prefer IPv6 by default.
+the IETF has standardized an IPv4 successor, [Internet Protocol Version 6](http://en.wikipedia.org/wiki/IPv6)
+, in [RFC 2460](https://www.ietf.org/rfc/rfc2460.txt). Both protocols, IPv4 and
+IPv6, reside on layer 3 of the [OSI model](http://en.wikipedia.org/wiki/OSI_model).
 
 
 ### IPv6 with Docker
@@ -527,9 +445,9 @@ at `2001:db8::1`. The subnet `2001:db8:0:0:0:1::/80` with an address range from
 `2001:db8::1:0:0:0` to `2001:db8::1:ffff:ffff:ffff` is attached to `docker0` and
 will be used by containers.
 
-#### Docker IPv6 Cluster
+### Docker IPv6 Cluster
 
-##### Switched Network Environment
+#### Switched Network Environment
 Using routable IPv6 addresses allows you to realize communication between
 containers on different hosts. Let's have a look at a simple Docker IPv6 cluster
 example:
@@ -575,7 +493,7 @@ the Docker subnet on the host, the container IP addresses and the routes on the
 containers. The configuration above the line is up to the user and can be
 adapted to the individual environment.
 
-##### Routed Network Environment
+#### Routed Network Environment
 
 In a routed network environment you replace the level 2 switch with a level 3
 router. Now the hosts just have to know their default gateway (the router) and
