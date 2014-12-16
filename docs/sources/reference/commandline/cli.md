@@ -216,7 +216,7 @@ verification failed (i.e., wrong CA).
 By default, Docker assumes all, but local (see local registries below), registries are secure.
 Communicating with an insecure registry is not possible if Docker assumes that registry is secure.
 In order to communicate with an insecure registry, the Docker daemon requires `--insecure-registry`
-in one of the following two forms:
+in one of the following two forms: 
 
 * `--insecure-registry myregistry:5000` tells the Docker daemon that myregistry:5000 should be considered insecure.
 * `--insecure-registry 10.1.0.0/16` tells the Docker daemon that all registries whose domain resolve to an IP address is part
@@ -1665,3 +1665,4 @@ both Docker client and daemon.
     Usage: docker wait CONTAINER [CONTAINER...]
 
     Block until a container stops, then print its exit code.
+

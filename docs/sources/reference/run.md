@@ -125,7 +125,7 @@ programs might write out their process ID to a file (you've seen them as
 PID files):
 
     --cidfile="": Write the container ID to the file
-
+    
 ### Image[:tag]
 
 While not strictly a means of identifying a container, you can specify a version of an
@@ -136,13 +136,13 @@ example, `docker run ubuntu:14.04`.
     --ipc=""  : Set the IPC mode for the container,
                                  'container:<name|id>': reuses another container's IPC namespace
                                  'host': use the host's IPC namespace inside the container
-By default, all containers have the IPC namespace enabled
+By default, all containers have the IPC namespace enabled 
 
 IPC (POSIX/SysV IPC) namespace provides separation of named shared memory segments, semaphores and message queues.  
 
 Shared memory segments are used to accelerate inter-process communication at
 memory speed, rather than through pipes or through the network stack. Shared
-memory is commonly used by databases and custom-built (typically C/OpenMPI,
+memory is commonly used by databases and custom-built (typically C/OpenMPI, 
 C++/using boost libraries) high performance applications for scientific
 computing and financial services industries. If these types of applications
 are broken into multiple containers, you might need to share the IPC mechanisms
@@ -150,14 +150,14 @@ of the containers.
 
 ## Network settings
 
-    --dns=[]            : Set custom DNS servers for the container
-    --net="bridge"      : Set the network mode for the container
-                                    'bridge': creates a new network stack for the container on the Docker bridge
-                                    'none': no networking for this container
-                                    'container:<name|id>': reuses another container network stack
-                                    'host': use the host network stack inside the container
-    --add-host=""       : Add a line to /etc/hosts (host:IP)
-    --mac-address=""    : Sets the container's Ethernet device's MAC address
+    --dns=[]         : Set custom dns servers for the container
+    --net="bridge"   : Set the Network mode for the container
+                                  'bridge': creates a new network stack for the container on the docker bridge
+                                  'none': no networking for this container
+                                  'container:<name|id>': reuses another container network stack
+                                  'host': use the host network stack inside the container
+    --add-host=""    : Add a line to /etc/hosts (host:IP)
+    --mac-address="" : Sets the container's Ethernet device's MAC address
 
 By default, all containers have networking enabled and they can make any
 outgoing connections. The operator can completely disable networking
@@ -253,7 +253,7 @@ the container exits**, you can add the `--rm` flag:
     --security-opt="label:type:TYPE"   : Set the label type for the container
     --security-opt="label:level:LEVEL" : Set the label level for the container
     --security-opt="label:disable"     : Turn off label confinement for the container
-    --secutity-opt="apparmor:PROFILE"  : Set the AppArmor profile to be applied
+    --secutity-opt="apparmor:PROFILE"  : Set the apparmor profile to be applied 
                                          to the container
 
 You can override the default labeling scheme for each container by specifying
@@ -459,7 +459,7 @@ with `-P` or `-p,` or start the client container with `--link`.
 
 If the operator uses `-P` or `-p` then Docker will make the exposed port
 accessible on the host and the ports will be available to any client
-that can reach the host. When using `-P`, Docker will bind the exposed
+that can reach the host. When using `-P`, Docker will bind the exposed 
 ports to a random port on the host between 49153 and 65535. To find the
 mapping between the host ports and the exposed ports, use `docker port`.
 
@@ -486,20 +486,20 @@ variables automatically:
  </tr>
  <tr style="background-color:#E8E8E8">
   <td valign=top> <code>HOSTNAME</code> </td>
-  <td style="padding-left:10px">
+  <td style="padding-left:10px"> 
     The hostname associated with the container
   </td>
  </tr>
  <tr>
   <td valign=top> <code>PATH</code> </td>
-  <td style="padding-left:10px">
+  <td style="padding-left:10px"> 
     Includes popular directories, such as :<br>
     <code>/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin</code>
   </td>
  <tr style="background-color:#E8E8E8">
   <td valign=top> <code>TERM</code> </td>
-  <td style="padding-left:10px">
-    <code>xterm</code> if the container is allocated a psuedo-TTY
+  <td style="padding-left:10px"> 
+    <code>xterm</code> if the container is allocated a psuedo-TTY 
   </td>
  </tr>
 </table>
@@ -509,8 +509,8 @@ as a result of the container being linked with another container. See
 the [*Container Links*](/userguide/dockerlinks/#container-linking)
 section for more details.
 
-Additionally, the operator can **set any environment variable** in the
-container by using one or more `-e` flags, even overriding those mentioned
+Additionally, the operator can **set any environment variable** in the 
+container by using one or more `-e` flags, even overriding those mentioned 
 above, or already defined by the developer with a Dockerfile `ENV`:
 
     $ sudo docker run -e "deep=purple" --rm ubuntu /bin/bash -c export
@@ -584,7 +584,7 @@ container's `/etc/hosts` entry will be automatically updated.
     --volumes-from="": Mount all volumes from the given container(s)
 
 The volumes commands are complex enough to have their own documentation
-in section [*Managing data in
+in section [*Managing data in 
 containers*](/userguide/dockervolumes/#volume-def). A developer can define
 one or more `VOLUME`'s associated with an image, but only the operator
 can give access from one container to another (or from a container to a

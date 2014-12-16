@@ -487,7 +487,7 @@ In a switched environment every host has to know all routes to every subnet. You
 always have to update the hosts' routing tables once you add or remove a host
 to the cluster.
 
-Every configuration in the diagram that is visualized below the dashed line is
+Every configuration in the diagram that is shown below the dashed line is
 handled by Docker: The `docker0` bridge IP address configuration, the route to
 the Docker subnet on the host, the container IP addresses and the routes on the
 containers. The configuration above the line is up to the user and can be
