@@ -1,18 +1,12 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-	"unicode"
-
-	"github.com/kr/pty"
 )
 
 func TestEventsUntag(t *testing.T) {
@@ -61,7 +55,7 @@ func TestEventsPause(t *testing.T) {
 		t.Fatalf("event should be pause, not %#v", pauseEvent)
 	}
 	if unpauseEvent[len(unpauseEvent)-1] != "unpause" {
-		t.Fatalf("event should be pause, not %#v", unpauseEvent)
+		t.Fatalf("event should be unpause, not %#v", unpauseEvent)
 	}
 
 	waitCmd := exec.Command(dockerBinary, "wait", name)
@@ -138,13 +132,13 @@ func TestEventsContainerEvents(t *testing.T) {
 		t.Fatalf("event should be create, not %#v", createEvent)
 	}
 	if startEvent[len(startEvent)-1] != "start" {
-		t.Fatalf("event should be pause, not %#v", startEvent)
+		t.Fatalf("event should be start, not %#v", startEvent)
 	}
 	if dieEvent[len(dieEvent)-1] != "die" {
-		t.Fatalf("event should be pause, not %#v", dieEvent)
+		t.Fatalf("event should be die, not %#v", dieEvent)
 	}
 	if destroyEvent[len(destroyEvent)-1] != "destroy" {
-		t.Fatalf("event should be pause, not %#v", destroyEvent)
+		t.Fatalf("event should be destroy, not %#v", destroyEvent)
 	}
 
 	logDone("events - container create, start, die, destroy is logged")
@@ -185,54 +179,11 @@ func TestEventsImageUntagDelete(t *testing.T) {
 	logDone("events - image untag, delete is logged")
 }
 
-// #5979
-func TestEventsRedirectStdout(t *testing.T) {
-
-	since := time.Now().Unix()
-
-	dockerCmd(t, "run", "busybox", "true")
-
-	defer deleteAllContainers()
-
-	file, err := ioutil.TempFile("", "")
-	if err != nil {
-		t.Fatalf("could not create temp file: %v", err)
-	}
-	defer os.Remove(file.Name())
-
-	command := fmt.Sprintf("%s events --since=%d --until=%d > %s", dockerBinary, since, time.Now().Unix(), file.Name())
-	_, tty, err := pty.Open()
-	if err != nil {
-		t.Fatalf("Could not open pty: %v", err)
-	}
-	cmd := exec.Command("sh", "-c", command)
-	cmd.Stdin = tty
-	cmd.Stdout = tty
-	cmd.Stderr = tty
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("run err for command %q: %v", command, err)
-	}
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		for _, c := range scanner.Text() {
-			if unicode.IsControl(c) {
-				t.Fatalf("found control character %v", []byte(string(c)))
-			}
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		t.Fatalf("Scan err for command %q: %v", command, err)
-	}
-
-	logDone("events - redirect stdout")
-}
-
 func TestEventsImagePull(t *testing.T) {
 	since := time.Now().Unix()
-	pullCmd := exec.Command(dockerBinary, "pull", "scratch")
+	pullCmd := exec.Command(dockerBinary, "pull", "hello-world")
 	if out, _, err := runCommandWithOutput(pullCmd); err != nil {
-		t.Fatalf("pulling the scratch image from has failed: %s, %v", out, err)
+		t.Fatalf("pulling the hello-world image from has failed: %s, %v", out, err)
 	}
 
 	eventsCmd := exec.Command(dockerBinary, "events",
@@ -243,7 +194,7 @@ func TestEventsImagePull(t *testing.T) {
 	events := strings.Split(strings.TrimSpace(out), "\n")
 	event := strings.TrimSpace(events[len(events)-1])
 
-	if !strings.HasSuffix(event, "scratch:latest: pull") {
+	if !strings.HasSuffix(event, "hello-world:latest: pull") {
 		t.Fatalf("Missing pull event - got:%q", event)
 	}
 
@@ -282,4 +233,64 @@ func TestEventsImageImport(t *testing.T) {
 	}
 
 	logDone("events - image import is logged")
+}
+
+func TestEventsFilters(t *testing.T) {
+	since := time.Now().Unix()
+	out, _, err := runCommandWithOutput(exec.Command(dockerBinary, "run", "--rm", "busybox", "true"))
+	if err != nil {
+		t.Fatal(out, err)
+	}
+	out, _, err = runCommandWithOutput(exec.Command(dockerBinary, "run", "--rm", "busybox", "true"))
+	if err != nil {
+		t.Fatal(out, err)
+	}
+	eventsCmd := exec.Command(dockerBinary, "events", fmt.Sprintf("--since=%d", since), fmt.Sprintf("--until=%d", time.Now().Unix()), "--filter", "event=die")
+	out, exitCode, err := runCommandWithOutput(eventsCmd)
+	if exitCode != 0 || err != nil {
+		t.Fatalf("Failed to get events with exit code %d: %s", exitCode, err)
+	}
+	events := strings.Split(out, "\n")
+	events = events[:len(events)-1]
+	if len(events) != 2 {
+		t.Fatalf("Expected 2 events, got %d: %v", len(events), events)
+	}
+	dieEvent := strings.Fields(events[len(events)-1])
+	if dieEvent[len(dieEvent)-1] != "die" {
+		t.Fatalf("event should be die, not %#v", dieEvent)
+	}
+
+	dieEvent = strings.Fields(events[len(events)-2])
+	if dieEvent[len(dieEvent)-1] != "die" {
+		t.Fatalf("event should be die, not %#v", dieEvent)
+	}
+
+	eventsCmd = exec.Command(dockerBinary, "events", fmt.Sprintf("--since=%d", since), fmt.Sprintf("--until=%d", time.Now().Unix()), "--filter", "event=die", "--filter", "event=start")
+	out, exitCode, err = runCommandWithOutput(eventsCmd)
+	if exitCode != 0 || err != nil {
+		t.Fatalf("Failed to get events with exit code %d: %s", exitCode, err)
+	}
+	events = strings.Split(out, "\n")
+	events = events[:len(events)-1]
+	if len(events) != 4 {
+		t.Fatalf("Expected 4 events, got %d: %v", len(events), events)
+	}
+	startEvent := strings.Fields(events[len(events)-4])
+	if startEvent[len(startEvent)-1] != "start" {
+		t.Fatalf("event should be start, not %#v", startEvent)
+	}
+	dieEvent = strings.Fields(events[len(events)-3])
+	if dieEvent[len(dieEvent)-1] != "die" {
+		t.Fatalf("event should be die, not %#v", dieEvent)
+	}
+	startEvent = strings.Fields(events[len(events)-2])
+	if startEvent[len(startEvent)-1] != "start" {
+		t.Fatalf("event should be start, not %#v", startEvent)
+	}
+	dieEvent = strings.Fields(events[len(events)-1])
+	if dieEvent[len(dieEvent)-1] != "die" {
+		t.Fatalf("event should be die, not %#v", dieEvent)
+	}
+
+	logDone("events - filters")
 }

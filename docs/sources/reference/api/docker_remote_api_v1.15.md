@@ -88,6 +88,9 @@ Query Parameters:
         non-running ones.
 -   **size** – 1/True/true or 0/False/false, Show the containers
         sizes
+-   **filters** - a json encoded value of the filters (a map[string][]string) to process on the containers list. Available filters:
+  -   exited=&lt;int&gt; -- containers with exit code of &lt;int&gt;
+  -   status=(restarting|running|paused|exited)
 
 Status Codes:
 
@@ -227,6 +230,8 @@ Json Parameters:
           exit code is non-zero.  If `on-failure` is used, `MaximumRetryCount`
           controls the number of times to retry before giving up.
           The default is not to restart. (optional)
+          An ever increasing delay (double the previous delay, starting at 100mS)
+          is added before each restart to prevent flooding the server.
   -   **NetworkMode** - Sets the networking mode for the container. Supported
         values are: `bridge`, `host`, and `container:<name|id>`
   -   **Devices** - A list of devices to add to the container specified in the
@@ -554,6 +559,8 @@ Json Parameters:
         exit code is non-zero.  If `on-failure` is used, `MaximumRetryCount`
         controls the number of times to retry before giving up.
         The default is not to restart. (optional)
+        An ever increasing delay (double the previous delay, starting at 100mS)
+        is added before each restart to prevent flooding the server.
 -   **NetworkMode** - Sets the networking mode for the container. Supported
       values are: `bridge`, `host`, and `container:<name|id>`
 -   **Devices** - A list of devices to add to the container specified in the
@@ -721,7 +728,7 @@ Status Codes:
 
     When using the TTY setting is enabled in
     [`POST /containers/create`
-    ](../docker_remote_api_v1.9/#post--containers-create "POST /containers/create"),
+    ](/reference/api/docker_remote_api_v1.9/#create-a-container "POST /containers/create"),
     the stream is the raw data from the process PTY and client's stdin.
     When the TTY is disabled, then the stream is multiplexed to separate
     stdout and stderr.
@@ -884,7 +891,8 @@ Status Codes:
 Query Parameters:
 
 -   **all** – 1/True/true or 0/False/false, default false
--   **filters** – a json encoded value of the filters (a map[string][]string) to process on the images list.
+-   **filters** – a json encoded value of the filters (a map[string][]string) to process on the images list. Available filters:
+  -   dangling=true
 
 ### Create an image
 
@@ -913,7 +921,8 @@ Create an image, either by pulling it from the registry or by importing it
 Query Parameters:
 
 -   **fromImage** – name of the image to pull
--   **fromSrc** – source to import, - means stdin
+-   **fromSrc** – source to import.  The value may be a URL from which the image
+        can be retrieved or `-` to read the image from the request body.
 -   **repo** – repository
 -   **tag** – tag
 -   **registry** – the registry to pull from
@@ -1209,7 +1218,7 @@ Query Parameters:
 -   **q** – suppress verbose build output
 -   **nocache** – do not use the cache when building the image
 -   **rm** - remove intermediate containers after a successful build (default behavior)
--   **forcerm - always remove intermediate containers (includes rm)
+-   **forcerm** - always remove intermediate containers (includes rm)
 
     Request Headers:
 

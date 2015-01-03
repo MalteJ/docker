@@ -58,10 +58,11 @@ func TestGetRemoteHistory(t *testing.T) {
 
 func TestLookupRemoteImage(t *testing.T) {
 	r := spawnTestRegistrySession(t)
-	found := r.LookupRemoteImage(imageID, makeURL("/v1/"), token)
-	assertEqual(t, found, true, "Expected remote lookup to succeed")
-	found = r.LookupRemoteImage("abcdef", makeURL("/v1/"), token)
-	assertEqual(t, found, false, "Expected remote lookup to fail")
+	err := r.LookupRemoteImage(imageID, makeURL("/v1/"), token)
+	assertEqual(t, err, nil, "Expected error of remote lookup to nil")
+	if err := r.LookupRemoteImage("abcdef", makeURL("/v1/"), token); err == nil {
+		t.Fatal("Expected error of remote lookup to not nil")
+	}
 }
 
 func TestGetRemoteImageJSON(t *testing.T) {
@@ -347,6 +348,10 @@ func TestIsSecure(t *testing.T) {
 		{"example.com:5000", []string{"42.42.42.42/8"}, false},
 		{"127.0.0.1:5000", []string{"127.0.0.0/8"}, false},
 		{"42.42.42.42:5000", []string{"42.1.1.1/8"}, false},
+		{"invalid.domain.com", []string{"42.42.0.0/16"}, true},
+		{"invalid.domain.com", []string{"invalid.domain.com"}, false},
+		{"invalid.domain.com:5000", []string{"invalid.domain.com"}, true},
+		{"invalid.domain.com:5000", []string{"invalid.domain.com:5000"}, false},
 	}
 	for _, tt := range tests {
 		// TODO: remove this once we remove localhost insecure by default

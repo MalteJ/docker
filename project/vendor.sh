@@ -39,7 +39,7 @@ clone() {
 	echo done
 }
 
-clone git github.com/kr/pty 67e2db24c8
+clone git github.com/kr/pty 05017fcccf
 
 clone git github.com/gorilla/context 14f550f51a
 
@@ -66,7 +66,7 @@ if [ "$1" = '--go' ]; then
 	mv tmp-tar src/code.google.com/p/go/src/pkg/archive/tar
 fi
 
-clone git github.com/docker/libcontainer 84c1636580a356db88b079d118b94abe6a1a0acd
+clone git github.com/docker/libcontainer 0f397d4e145fb4053792d42b3424dd2143fb23ad
 # see src/github.com/docker/libcontainer/update-vendor.sh which is the "source of truth" for libcontainer deps (just like this file)
 rm -rf src/github.com/docker/libcontainer/vendor
 eval "$(grep '^clone ' src/github.com/docker/libcontainer/update-vendor.sh | grep -v 'github.com/codegangsta/cli')"

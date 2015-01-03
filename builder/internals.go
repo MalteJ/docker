@@ -58,7 +58,7 @@ func (b *Builder) readContext(context io.Reader) error {
 }
 
 func (b *Builder) commit(id string, autoCmd []string, comment string) error {
-	if b.image == "" {
+	if b.image == "" && !b.noBaseImage {
 		return fmt.Errorf("Please provide a source image with `from` prior to commit")
 	}
 	b.Config.Image = b.image
@@ -216,6 +216,18 @@ func calcCopyInfo(b *Builder, cmdName string, cInfos *[]*copyInfo, origPath stri
 		origPath = origPath[1:]
 	}
 	origPath = strings.TrimPrefix(origPath, "./")
+
+	// Twiddle the destPath when its a relative path - meaning, make it
+	// relative to the WORKINGDIR
+	if !filepath.IsAbs(destPath) {
+		hasSlash := strings.HasSuffix(destPath, "/")
+		destPath = filepath.Join("/", b.Config.WorkingDir, destPath)
+
+		// Make sure we preserve any trailing slash
+		if hasSlash {
+			destPath += "/"
+		}
+	}
 
 	// In the remote/URL case, download it and gen its hashcode
 	if urlutil.IsURL(origPath) {
@@ -501,7 +513,7 @@ func (b *Builder) probeCache() (bool, error) {
 }
 
 func (b *Builder) create() (*daemon.Container, error) {
-	if b.image == "" {
+	if b.image == "" && !b.noBaseImage {
 		return nil, fmt.Errorf("Please provide a source image with `from` prior to run")
 	}
 	b.Config.Image = b.image
@@ -539,7 +551,7 @@ func (b *Builder) run(c *daemon.Container) error {
 		logsJob.Setenv("stdout", "1")
 		logsJob.Setenv("stderr", "1")
 		logsJob.Stdout.Add(b.OutStream)
-		logsJob.Stderr.Add(b.ErrStream)
+		logsJob.Stderr.Set(b.ErrStream)
 		if err := logsJob.Run(); err != nil {
 			return err
 		}
@@ -649,37 +661,45 @@ func (b *Builder) addContext(container *daemon.Container, orig, dest string, dec
 		resPath = path.Join(destPath, path.Base(origPath))
 	}
 
-	return fixPermissions(resPath, 0, 0)
+	return fixPermissions(origPath, resPath, 0, 0, destExists)
 }
 
-func copyAsDirectory(source, destination string, destinationExists bool) error {
+func copyAsDirectory(source, destination string, destExisted bool) error {
 	if err := chrootarchive.CopyWithTar(source, destination); err != nil {
 		return err
 	}
+	return fixPermissions(source, destination, 0, 0, destExisted)
+}
 
-	if destinationExists {
-		files, err := ioutil.ReadDir(source)
+func fixPermissions(source, destination string, uid, gid int, destExisted bool) error {
+	// If the destination didn't already exist, or the destination isn't a
+	// directory, then we should Lchown the destination. Otherwise, we shouldn't
+	// Lchown the destination.
+	destStat, err := os.Stat(destination)
+	if err != nil {
+		// This should *never* be reached, because the destination must've already
+		// been created while untar-ing the context.
+		return err
+	}
+	doChownDestination := !destExisted || !destStat.IsDir()
+
+	// We Walk on the source rather than on the destination because we don't
+	// want to change permissions on things we haven't created or modified.
+	return filepath.Walk(source, func(fullpath string, info os.FileInfo, err error) error {
+		// Do not alter the walk root iff. it existed before, as it doesn't fall under
+		// the domain of "things we should chown".
+		if !doChownDestination && (source == fullpath) {
+			return nil
+		}
+
+		// Path is prefixed by source: substitute with destination instead.
+		cleaned, err := filepath.Rel(source, fullpath)
 		if err != nil {
 			return err
 		}
 
-		for _, file := range files {
-			if err := fixPermissions(filepath.Join(destination, file.Name()), 0, 0); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	return fixPermissions(destination, 0, 0)
-}
-
-func fixPermissions(destination string, uid, gid int) error {
-	return filepath.Walk(destination, func(path string, info os.FileInfo, err error) error {
-		if err := os.Lchown(path, uid, gid); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
+		fullpath = path.Join(destination, cleaned)
+		return os.Lchown(fullpath, uid, gid)
 	})
 }
 

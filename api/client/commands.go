@@ -180,7 +180,7 @@ func (cli *DockerCli) CmdBuild(args ...string) error {
 	// FIXME: ProgressReader shouldn't be this annoying to use
 	if context != nil {
 		sf := utils.NewStreamFormatter(false)
-		body = utils.ProgressReader(context, 0, cli.err, sf, true, "", "Sending build context to Docker daemon")
+		body = utils.ProgressReader(context, 0, cli.out, sf, true, "", "Sending build context to Docker daemon")
 	}
 	// Send the build context
 	v := &url.Values{}
@@ -544,6 +544,9 @@ func (cli *DockerCli) CmdInfo(args ...string) error {
 		if initPath := remoteInfo.Get("InitPath"); initPath != "" {
 			fmt.Fprintf(cli.out, "Init Path: %s\n", initPath)
 		}
+		if root := remoteInfo.Get("DockerRootDir"); root != "" {
+			fmt.Fprintf(cli.out, "Docker Root Dir: %s\n", root)
+		}
 	}
 
 	if len(remoteInfo.GetList("IndexServerAddress")) != 0 {
@@ -882,7 +885,7 @@ func (cli *DockerCli) CmdInspect(args ...string) error {
 		// Remove trailing ','
 		indented.Truncate(indented.Len() - 1)
 	}
-	indented.WriteByte(']')
+	indented.WriteString("]\n")
 
 	if tmpl == nil {
 		if _, err := io.Copy(cli.out, indented); err != nil {
@@ -1077,7 +1080,7 @@ func (cli *DockerCli) CmdHistory(args ...string) error {
 			} else {
 				fmt.Fprintf(w, "%s\t", utils.Trunc(out.Get("CreatedBy"), 45))
 			}
-			fmt.Fprintf(w, "%s\n", units.HumanSize(out.GetInt64("Size")))
+			fmt.Fprintf(w, "%s\n", units.HumanSize(float64(out.GetInt64("Size"))))
 		} else {
 			if *noTrunc {
 				fmt.Fprintln(w, outID)
@@ -1328,7 +1331,7 @@ func (cli *DockerCli) CmdPull(args ...string) error {
 }
 
 func (cli *DockerCli) CmdImages(args ...string) error {
-	cmd := cli.Subcmd("images", "[NAME]", "List images")
+	cmd := cli.Subcmd("images", "[REPOSITORY]", "List images")
 	quiet := cmd.Bool([]string{"q", "-quiet"}, false, "Only show numeric IDs")
 	all := cmd.Bool([]string{"a", "-all"}, false, "Show all images (by default filter out the intermediate image layers)")
 	noTrunc := cmd.Bool([]string{"#notrunc", "-no-trunc"}, false, "Don't truncate output")
@@ -1482,7 +1485,7 @@ func (cli *DockerCli) CmdImages(args ...string) error {
 				}
 
 				if !*quiet {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\n", repo, tag, outID, units.HumanDuration(time.Now().UTC().Sub(time.Unix(out.GetInt64("Created"), 0))), units.HumanSize(out.GetInt64("VirtualSize")))
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\n", repo, tag, outID, units.HumanDuration(time.Now().UTC().Sub(time.Unix(out.GetInt64("Created"), 0))), units.HumanSize(float64(out.GetInt64("VirtualSize"))))
 				} else {
 					fmt.Fprintln(w, outID)
 				}
@@ -1556,7 +1559,7 @@ func (cli *DockerCli) printTreeNode(noTrunc bool, image *engine.Env, prefix stri
 		imageID = utils.TruncateID(image.Get("Id"))
 	}
 
-	fmt.Fprintf(cli.out, "%s%s Virtual Size: %s", prefix, imageID, units.HumanSize(image.GetInt64("VirtualSize")))
+	fmt.Fprintf(cli.out, "%s%s Virtual Size: %s", prefix, imageID, units.HumanSize(float64(image.GetInt64("VirtualSize"))))
 	if image.GetList("RepoTags")[0] != "<none>:<none>" {
 		fmt.Fprintf(cli.out, " Tags: %s\n", strings.Join(image.GetList("RepoTags"), ", "))
 	} else {
@@ -1693,15 +1696,20 @@ func (cli *DockerCli) CmdPs(args ...string) error {
 
 		ports.ReadListFrom([]byte(out.Get("Ports")))
 
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\t%s\t%s\t", outID, out.Get("Image"), outCommand,
+		image := out.Get("Image")
+		if image == "" {
+			image = "<no image>"
+		}
+
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s ago\t%s\t%s\t%s\t", outID, image, outCommand,
 			units.HumanDuration(time.Now().UTC().Sub(time.Unix(out.GetInt64("Created"), 0))),
 			out.Get("Status"), api.DisplayablePorts(ports), strings.Join(outNames, ","))
 
 		if *size {
 			if out.GetInt("SizeRootFs") > 0 {
-				fmt.Fprintf(w, "%s (virtual %s)\n", units.HumanSize(out.GetInt64("SizeRw")), units.HumanSize(out.GetInt64("SizeRootFs")))
+				fmt.Fprintf(w, "%s (virtual %s)\n", units.HumanSize(float64(out.GetInt64("SizeRw"))), units.HumanSize(float64(out.GetInt64("SizeRootFs"))))
 			} else {
-				fmt.Fprintf(w, "%s\n", units.HumanSize(out.GetInt64("SizeRw")))
+				fmt.Fprintf(w, "%s\n", units.HumanSize(float64(out.GetInt64("SizeRw"))))
 			}
 
 			continue
@@ -1782,6 +1790,10 @@ func (cli *DockerCli) CmdEvents(args ...string) error {
 	cmd := cli.Subcmd("events", "", "Get real time events from the server")
 	since := cmd.String([]string{"#since", "-since"}, "", "Show all events created since timestamp")
 	until := cmd.String([]string{"-until"}, "", "Stream events until this timestamp")
+
+	flFilter := opts.NewListOpts(nil)
+	cmd.Var(&flFilter, []string{"f", "-filter"}, "Provide filter values (i.e. 'event=stop')")
+
 	if err := cmd.Parse(args); err != nil {
 		return nil
 	}
@@ -1791,9 +1803,20 @@ func (cli *DockerCli) CmdEvents(args ...string) error {
 		return nil
 	}
 	var (
-		v   = url.Values{}
-		loc = time.FixedZone(time.Now().Zone())
+		v               = url.Values{}
+		loc             = time.FixedZone(time.Now().Zone())
+		eventFilterArgs = filters.Args{}
 	)
+
+	// Consolidate all filter flags, and sanity check them early.
+	// They'll get process in the daemon/server.
+	for _, f := range flFilter.GetAll() {
+		var err error
+		eventFilterArgs, err = filters.ParseFlag(f, eventFilterArgs)
+		if err != nil {
+			return err
+		}
+	}
 	var setTime = func(key, value string) {
 		format := timeutils.RFC3339NanoFixed
 		if len(value) < len(format) {
@@ -1810,6 +1833,13 @@ func (cli *DockerCli) CmdEvents(args ...string) error {
 	}
 	if *until != "" {
 		setTime("until", *until)
+	}
+	if len(eventFilterArgs) > 0 {
+		filterJson, err := filters.ToParam(eventFilterArgs)
+		if err != nil {
+			return err
+		}
+		v.Set("filters", filterJson)
 	}
 	if err := cli.stream("GET", "/events?"+v.Encode(), nil, cli.out, nil); err != nil {
 		return err
@@ -1948,6 +1978,10 @@ func (cli *DockerCli) CmdAttach(args ...string) error {
 		config = env.GetSubEnv("Config")
 		tty    = config.GetBool("Tty")
 	)
+
+	if err := cli.CheckTtyInput(!*noStdin, tty); err != nil {
+		return err
+	}
 
 	if tty && cli.isTerminalOut {
 		if err := cli.monitorTtySize(cmd.Arg(0), false); err != nil {
@@ -2263,7 +2297,11 @@ func (cli *DockerCli) CmdRun(args ...string) error {
 		return nil
 	}
 
-	if *flDetach {
+	if !*flDetach {
+		if err := cli.CheckTtyInput(config.AttachStdin, config.Tty); err != nil {
+			return err
+		}
+	} else {
 		if fl := cmd.Lookup("attach"); fl != nil {
 			flAttach = fl.Value.(*opts.ListOpts)
 			if flAttach.Len() != 0 {
@@ -2551,6 +2589,7 @@ func (cli *DockerCli) CmdExec(args ...string) error {
 
 	execConfig, err := runconfig.ParseExec(cmd, args)
 	if err != nil {
+		cmd.Usage()
 		return err
 	}
 	if execConfig.Container == "" {
@@ -2575,10 +2614,16 @@ func (cli *DockerCli) CmdExec(args ...string) error {
 		return nil
 	}
 
-	if execConfig.Detach {
+	if !execConfig.Detach {
+		if err := cli.CheckTtyInput(execConfig.AttachStdin, execConfig.Tty); err != nil {
+			return err
+		}
+	} else {
 		if _, _, err := readBody(cli.call("POST", "/exec/"+execID+"/start", execConfig, false)); err != nil {
 			return err
 		}
+		// For now don't print this - wait for when we support exec wait()
+		// fmt.Fprintf(cli.out, "%s\n", execID)
 		return nil
 	}
 
@@ -2639,6 +2684,15 @@ func (cli *DockerCli) CmdExec(args ...string) error {
 	if err := <-errCh; err != nil {
 		log.Debugf("Error hijack: %s", err)
 		return err
+	}
+
+	var status int
+	if _, status, err = getExecExitCode(cli, execID); err != nil {
+		return err
+	}
+
+	if status != 0 {
+		return &utils.StatusError{StatusCode: status}
 	}
 
 	return nil

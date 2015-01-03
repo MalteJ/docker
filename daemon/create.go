@@ -5,6 +5,7 @@ import (
 
 	"github.com/docker/docker/engine"
 	"github.com/docker/docker/graph"
+	"github.com/docker/docker/image"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/runconfig"
 	"github.com/docker/libcontainer/label"
@@ -53,12 +54,9 @@ func (daemon *Daemon) ContainerCreate(job *engine.Job) engine.Status {
 		job.Errorf("IPv4 forwarding is disabled.\n")
 	}
 	container.LogEvent("create")
-	// FIXME: this is necessary because daemon.Create might return a nil container
-	// with a non-nil error. This should not happen! Once it's fixed we
-	// can remove this workaround.
-	if container != nil {
-		job.Printf("%s\n", container.ID)
-	}
+
+	job.Printf("%s\n", container.ID)
+
 	for _, warning := range buildWarnings {
 		job.Errorf("%s\n", warning)
 	}
@@ -71,15 +69,22 @@ func (daemon *Daemon) Create(config *runconfig.Config, hostConfig *runconfig.Hos
 	var (
 		container *Container
 		warnings  []string
+		img       *image.Image
+		imgID     string
+		err       error
 	)
 
-	img, err := daemon.repositories.LookupImage(config.Image)
-	if err != nil {
-		return nil, nil, err
+	if config.Image != "" {
+		img, err = daemon.repositories.LookupImage(config.Image)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err = img.CheckDepth(); err != nil {
+			return nil, nil, err
+		}
+		imgID = img.ID
 	}
-	if err := img.CheckDepth(); err != nil {
-		return nil, nil, err
-	}
+
 	if warnings, err = daemon.mergeAndVerifyConfig(config, img); err != nil {
 		return nil, nil, err
 	}
@@ -89,13 +94,13 @@ func (daemon *Daemon) Create(config *runconfig.Config, hostConfig *runconfig.Hos
 			return nil, nil, err
 		}
 	}
-	if container, err = daemon.newContainer(name, config, img); err != nil {
+	if container, err = daemon.newContainer(name, config, imgID); err != nil {
 		return nil, nil, err
 	}
 	if err := daemon.Register(container); err != nil {
 		return nil, nil, err
 	}
-	if err := daemon.createRootfs(container, img); err != nil {
+	if err := daemon.createRootfs(container); err != nil {
 		return nil, nil, err
 	}
 	if hostConfig != nil {
@@ -103,11 +108,19 @@ func (daemon *Daemon) Create(config *runconfig.Config, hostConfig *runconfig.Hos
 			return nil, nil, err
 		}
 	}
+	if err := container.Mount(); err != nil {
+		return nil, nil, err
+	}
+	defer container.Unmount()
+	if err := container.prepareVolumes(); err != nil {
+		return nil, nil, err
+	}
 	if err := container.ToDisk(); err != nil {
 		return nil, nil, err
 	}
 	return container, warnings, nil
 }
+
 func (daemon *Daemon) GenerateSecurityOpt(ipcMode runconfig.IpcMode) ([]string, error) {
 	if ipcMode.IsHost() {
 		return label.DisableSecOpt(), nil

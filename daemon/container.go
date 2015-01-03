@@ -62,8 +62,8 @@ type Container struct {
 	Path string
 	Args []string
 
-	Config *runconfig.Config
-	Image  string
+	Config  *runconfig.Config
+	ImageID string `json:"Image"`
 
 	NetworkSettings *NetworkSettings
 
@@ -186,7 +186,7 @@ func (container *Container) WriteHostConfig() error {
 
 func (container *Container) LogEvent(action string) {
 	d := container.daemon
-	if err := d.eng.Job("log", action, container.ID, d.Repositories().ImageName(container.Image)).Run(); err != nil {
+	if err := d.eng.Job("log", action, container.ID, d.Repositories().ImageName(container.ImageID)).Run(); err != nil {
 		log.Errorf("Error logging event %s for %s: %s", action, container.ID, err)
 	}
 }
@@ -264,7 +264,10 @@ func populateCommand(c *Container, env []string) error {
 	autoCreatedDevices := append(devices.DefaultAutoCreatedDevices, userSpecifiedDevices...)
 
 	// TODO: this can be removed after lxc-conf is fully deprecated
-	lxcConfig := mergeLxcConfIntoOptions(c.hostConfig)
+	lxcConfig, err := mergeLxcConfIntoOptions(c.hostConfig)
+	if err != nil {
+		return err
+	}
 
 	resources := &execdriver.Resources{
 		Memory:     c.Config.Memory,
@@ -554,7 +557,7 @@ func (container *Container) AllocateNetwork() error {
 }
 
 func (container *Container) ReleaseNetwork() {
-	if container.Config.NetworkDisabled {
+	if container.Config.NetworkDisabled || !container.hostConfig.NetworkMode.IsPrivate() {
 		return
 	}
 	eng := container.daemon.eng
@@ -611,6 +614,10 @@ func (container *Container) cleanup() {
 
 	if err := container.Unmount(); err != nil {
 		log.Errorf("%v: Failed to umount filesystem: %v", container.ID, err)
+	}
+
+	for _, eConfig := range container.execCommands.s {
+		container.daemon.unregisterExecCommand(eConfig)
 	}
 }
 
@@ -789,7 +796,7 @@ func (container *Container) GetImage() (*image.Image, error) {
 	if container.daemon == nil {
 		return nil, fmt.Errorf("Can't get image of unregistered container")
 	}
-	return container.daemon.graph.Get(container.Image)
+	return container.daemon.graph.Get(container.ImageID)
 }
 
 func (container *Container) Unmount() error {
