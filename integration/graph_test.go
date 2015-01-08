@@ -88,7 +88,7 @@ func TestInterruptedRegister(t *testing.T) {
 	}
 }
 
-// FIXME: Do more extensive tests (ex: create multiple, delete, recreate;
+// FIXME: Do more extensive tests (e.g. create multiple, delete, recreate;
 //       create multiple, check the amount of images and paths, etc..)
 func TestGraphCreate(t *testing.T) {
 	graph, _ := tempGraph(t)

@@ -20,7 +20,7 @@ import (
 
 var (
 	ErrAlreadyExists         = errors.New("Image already exists")
-	ErrInvalidRepositoryName = errors.New("Invalid repository name (ex: \"registry.domain.tld/myrepos\")")
+	ErrInvalidRepositoryName = errors.New("Invalid repository name (e.g. \"registry.domain.tld/myrepos\")")
 	ErrDoesNotExist          = errors.New("Image does not exist")
 	errLoginRequired         = errors.New("Authentication is required.")
 	validNamespaceChars      = regexp.MustCompile(`^([a-z0-9-_]*)$`)
@@ -205,7 +205,7 @@ func ResolveRepositoryName(reposName string) (string, string, error) {
 	nameParts := strings.SplitN(reposName, "/", 2)
 	if len(nameParts) == 1 || (!strings.Contains(nameParts[0], ".") && !strings.Contains(nameParts[0], ":") &&
 		nameParts[0] != "localhost") {
-		// This is a Docker Index repos (ex: samalba/hipache or ubuntu)
+		// This is a Docker Index repos (e.g. samalba/hipache or ubuntu)
 		err := validateRepositoryName(reposName)
 		return IndexServerAddress(), reposName, err
 	}
