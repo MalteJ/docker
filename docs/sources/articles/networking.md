@@ -433,7 +433,7 @@ To assign globally routable IPv6 addresses to your containers you have to
 specify an IPv6 subnet to pick the addresses from. Set the IPv6 subnet via the
 `--fixed-cidr-v6` parameter when starting Docker daemon:
 
-    docker -d --ipv6 --fixed-cidr-v6="2001:db8:0:2::/64"
+    docker -d --ipv6 --fixed-cidr-v6="2001:db8:1::/64"
 
 The subnet for Docker containers should at least have a size of `/80`. This way
 an IPv6 address can end with the container's MAC address and you prevent NDP
@@ -443,11 +443,11 @@ With the `--fixed-cidr-v6` parameter set Docker will add a new route to the
 routing table. Further IPv6 routing will be enabled (you may prevent this by
 starting Docker daemon with `--ip-forward=false`):
 
-    $ ip -6 route add 2001:db8:0:2::/64 dev docker0
+    $ ip -6 route add 2001:db8:1::/64 dev docker0
     $ sysctl net.ipv6.conf.default.forwarding=1
     $ sysctl net.ipv6.conf.all.forwarding=1
 
-All traffic to the subnet `2001:db8:0:2::/64` will now be routed
+All traffic to the subnet `2001:db8:1::/64` will now be routed
 via the `docker0` interface.
 
 Be aware that IPv6 forwarding may interfere with your existing IPv6
@@ -468,32 +468,33 @@ a default route will be added via the gateway `fe80::1` on `eth0`:
     docker run -it ubuntu bash -c "ip -6 addr show dev eth0; ip -6 route show"
 
     15: eth0: <BROADCAST,UP,LOWER_UP> mtu 1500
-       inet6 2001:db8:0:2:0:242:ac11:3/64 scope global
+       inet6 2001:db8:1:0:0:242:ac11:3/64 scope global
           valid_lft forever preferred_lft forever
        inet6 fe80::42:acff:fe11:3/64 scope link
           valid_lft forever preferred_lft forever
 
-    2001:db8:0:2::/64 dev eth0  proto kernel  metric 256
+    2001:db8:1::/64 dev eth0  proto kernel  metric 256
     fe80::/64 dev eth0  proto kernel  metric 256
     default via fe80::1 dev eth0  metric 1024
 
 In this example the Docker container is assigned a link-local address with the
 network suffix `/64` (here: `fe80::42:acff:fe11:3/64`) and a globally routable
-IPv6 address (here: `2001:db8:0:2:0:242:ac11:3/64`). The container will create
-connections to addresses outside of the `2001:db8:0:2::/64` network via the 
+IPv6 address (here: `2001:db8:1:0:0:242:ac11:3/64`). The container will create
+connections to addresses outside of the `2001:db8:1::/64` network via the
 link-local gateway at `fe80::1` on `eth0`.
 
-Often servers or virtual machines get a `/64` IPv6 subnet assigned. In this case
-you can split it up further and provide Docker a `/80` subnet while using a
-separate `/80` subnet for other applications on the host:
+Often servers or virtual machines get a `/64` IPv6 subnet assigned (e.g.
+`2001:db8:23:42::/64`). In this case you can split it up further and provide
+Docker a `/80` subnet while using a separate `/80` subnet for other
+applications on the host:
 
 ![](/article-img/ipv6_slash64_subnet_config.svg)
 
-In this setup the subnet `2001:db8::/80` with a range from `2001:db8::0:0:0:0`
-to `2001:db8::0:ffff:ffff:ffff` is attached to `eth0`, with the host listening
-at `2001:db8::1`. The subnet `2001:db8:0:0:0:1::/80` with an address range from
-`2001:db8::1:0:0:0` to `2001:db8::1:ffff:ffff:ffff` is attached to `docker0` and
-will be used by containers.
+In this setup the subnet `2001:db8:23:42::/80` with a range from `2001:db8:23:42:0:0:0:0`
+to `2001:db8:23:42:0:ffff:ffff:ffff` is attached to `eth0`, with the host listening
+at `2001:db8:23:42::1`. The subnet `2001:db8:23:42:1::/80` with an address range from
+`2001:db8:23:42:1:0:0:0` to `2001:db8:23:42:1:ffff:ffff:ffff` is attached to
+`docker0` and will be used by containers.
 
 ### Docker IPv6 Cluster
 
@@ -504,29 +505,29 @@ example:
 
 ![](/article-img/ipv6_switched_network_example.svg)
 
-The Docker hosts are in the `2001:db8:1::/64` subnet. Host1 is configured
-to provide addresses from the `2001:db8:2::/64` subnet to its containers. It has three
-routes configured:
+The Docker hosts are in the `2001:db8:0::/64` subnet. Host1 is configured
+to provide addresses from the `2001:db8:1::/64` subnet to its containers. It
+has three routes configured:
 
-- Route all traffic to `2001:db8:1::/64` via `eth0`
-- Route all traffic to `2001:db8:2::/64` via `docker0`
-- Route all traffic to `2001:db8:3::/64` via Host2 with IP `2001:db8:1::2`
+- Route all traffic to `2001:db8:0::/64` via `eth0`
+- Route all traffic to `2001:db8:1::/64` via `docker0`
+- Route all traffic to `2001:db8:2::/64` via Host2 with IP `2001:db8::2`
 
 Host1 also acts as a router on OSI layer 3. When one of the network clients
 tries to contact a target that is specified in Host1's routing table Host1 will
 forward the traffic accordingly. It acts as a router for all networks it knows:
-`2001:db8:1::/64`, `2001:db8:2::/64` and `2001:db8:3::/64`.
+`2001:db8::/64`, `2001:db8:1::/64` and `2001:db8:2::/64`.
 
-On Host2 we have nearly the same configuration. Host2's containers will get IPv6
-addresses from `2001:db8:3::/64`. Host2 has three routes configured:
+On Host2 we have nearly the same configuration. Host2's containers will get
+IPv6 addresses from `2001:db8:2::/64`. Host2 has three routes configured:
 
-- Route all traffic to `2001:db8:1::/64` via `eth0`
-- Route all traffic to `2001:db8:3::/64` via `docker0`
-- Route all traffic to `2001:db8:2::/64` via Host1 with IP `2001:db8:1::1`
+- Route all traffic to `2001:db8:0::/64` via `eth0`
+- Route all traffic to `2001:db8:2::/64` via `docker0`
+- Route all traffic to `2001:db8:1::/64` via Host1 with IP `2001:db8:0::1`
 
-The difference to Host1 is that the network `2001:db8:3::/64` is directly attached to
-the host via its `docker0` interface whereas it reaches `2001:db8:2::/64` via Host1's
-IPv6 address `2001:db8:1::1`.
+The difference to Host1 is that the network `2001:db8:2::/64` is directly
+attached to the host via its `docker0` interface whereas it reaches
+`2001:db8:1::/64` via Host1's IPv6 address `2001:db8::1`.
 
 This way every container is able to contact every other container. The
 containers `Container1-*` share the same subnet and contact each other directly.
